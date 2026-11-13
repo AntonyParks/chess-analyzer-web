@@ -35,16 +35,18 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
     return () => window.removeEventListener("keydown", onKey);
   }, [game, goto]);
 
-  // The desktop heatmap: each piece's square split into bands, one per legal move of that
-  // piece (in move-generation order), each coloured by that move's rank (red worst, gold best).
+  // The heatmap: each piece's square split into bands, one per legal move of that piece, each
+  // coloured by that move's rank (red worst, gold best). The best move is the top band, then
+  // down to the worst.
   const bands = useMemo(() => {
     if (!settings.heatmap || !analysis) return undefined;
-    const out: Record<string, string[]> = {};
+    const ranks: Record<string, number[]> = {};
     for (const uci of legalUcis(fen)) {
       const rank = analysis.rankMap[uci];
-      if (rank === undefined) continue;
-      (out[uci.slice(0, 2)] ??= []).push(rankColor(rank));
+      if (rank !== undefined) (ranks[uci.slice(0, 2)] ??= []).push(rank);
     }
+    const out: Record<string, string[]> = {};
+    for (const [sq, list] of Object.entries(ranks)) out[sq] = list.sort((a, b) => b - a).map(rankColor);
     return out;
   }, [settings.heatmap, analysis, fen]);
 
