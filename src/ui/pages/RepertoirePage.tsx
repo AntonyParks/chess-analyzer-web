@@ -7,7 +7,15 @@ import { Chess } from "chess.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ROOT_EPD, START_FEN, epd, isLegal, moveToUci, playUci, sanLine, sanOf } from "../../core/chess";
 import { GameState } from "../../core/gameState";
-import { type Deviation, type Repertoire, TrainSession, type TrainStep } from "../../core/repertoire";
+import {
+  type Deviation,
+  type Repertoire,
+  type RepertoireEntry,
+  type RepertoireJSON,
+  type RepertoireStore,
+  TrainSession,
+  type TrainStep,
+} from "../../core/repertoire";
 import { LichessRateLimited, RATING_CHOICES, type MoveStats, makeMoveStats } from "../../data/lichess";
 import { Board, type Arrow } from "../Board";
 import { useData } from "../data";
@@ -36,8 +44,8 @@ export function RepertoirePage({
   const data = useData();
   const [training, setTraining] = useState<TrainSession | null>(null);
   const [summary, setSummary] = useState("");
-  const color = settings.repertoireColor === "black" ? "b" : "w";
-  const rep = data.repertoire.get(color);
+  const entry = currentEntry(data.repertoire, settings);
+  const rep = entry.rep;
 
   useEffect(() => {
     setBoardBusy(training !== null);
@@ -60,8 +68,10 @@ export function RepertoirePage({
   }
   return withBoard(
     <Builder
+      key={entry.id}
       settings={settings}
       update={update}
+      entry={entry}
       rep={rep}
       summary={summary}
       onTrain={(practiseAll) => {
@@ -82,12 +92,14 @@ export function RepertoirePage({
 function Builder({
   settings,
   update,
+  entry,
   rep,
   summary,
   onTrain,
 }: {
   settings: Settings;
   update: (p: Partial<Settings>) => void;
+  entry: RepertoireEntry;
   rep: Repertoire;
   summary: string;
   onTrain: (practiseAll: boolean) => void;
@@ -98,6 +110,19 @@ function Builder({
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [pendingReplace, setPendingReplace] = useState<{ existing: string; next: string } | null>(null);
+  const [undo, setUndo] = useState<{ json: RepertoireJSON; text: string } | null>(null);
+
+  /** Remove one move (and what only it led to), with an Undo. */
+  const removeMove = (positionEpd: string, uci: string) => {
+    const snapshot = rep.toJSON();
+    const san = rep.movesAt(positionEpd).get(uci) ?? uci;
+    const size = rep.size();
+    rep.remove(positionEpd, uci);
+    data.save("repertoire");
+    const removed = size - rep.size();
+    setMessage("");
+    setUndo({ json: snapshot, text: `Removed ${san}${removed > 1 ? ` and ${removed - 1} move${removed === 2 ? "" : "s"} after it` : ""}.` });
+  };
   const [deviations, setDeviations] = useState<{ dev: Deviation; count: number; path: string[] }[] | null>(null);
   const fen = game.fen;
   const here = epd(fen);
@@ -207,8 +232,8 @@ function Builder({
   const status_ = (() => {
     if (!fromStart) return "The board does not start from the initial position.";
     const size = rep.size();
-    const name = color(rep) === "w" ? "White" : "Black";
-    const head = `${name}: ${size} move${size === 1 ? "" : "s"}`;
+    const side = color(rep) === "w" ? "White" : "Black";
+    const head = `${entry.name} (${side}): ${size} move${size === 1 ? "" : "s"}`;
     if (size === 0) return `${head} · play a line on the board and press Add line to here.`;
     let g = new Chess(START_FEN);
     let leftAt: string | null = null;
@@ -248,11 +273,7 @@ function Builder({
     for (const u of line.slice(0, -1)) playUci(before, u);
     const last = line[line.length - 1];
     if (!rep.movesAt(epd(before.fen())).has(last)) return setMessage("That move is not in your repertoire.");
-    const size = rep.size();
-    rep.remove(epd(before.fen()), last);
-    data.save("repertoire");
-    const removed = size - rep.size();
-    setMessage(`Removed ${removed} move${removed === 1 ? "" : "s"}.`);
+    removeMove(epd(before.fen()), last);
   };
 
   const goToGap = () => {
@@ -305,15 +326,9 @@ function Builder({
     <div className="col">
       <section className="panel">
         <div className="row">
-          <select
-            value={settings.repertoireColor}
-            onChange={(e) => update({ repertoireColor: e.target.value as "white" | "black" })}
-            aria-label="Repertoire colour"
-            data-tip={TIPS.repColour}
-          >
-            <option value="white">White repertoire</option>
-            <option value="black">Black repertoire</option>
-          </select>
+          <RepertoirePicker update={update} entry={entry} />
+        </div>
+        <div className="row">
           <label className="small row" style={{ gap: 4 }} data-tip={TIPS.repCoverage}>
             Cover replies played in 1 of
             <input
@@ -374,6 +389,24 @@ function Builder({
           </div>
         )}
         {(message || summary) && <p className="small" style={{ margin: 0 }}>{message || summary}</p>}
+        {undo && (
+          <div className="row small">
+            <span>{undo.text}</span>
+            <button
+              className="btn"
+              type="button"
+              data-tip={TIPS.repUndo}
+              onClick={() => {
+                data.repertoire.restore(entry.id, undo.json);
+                data.save("repertoire");
+                setUndo(null);
+                setMessage("Restored.");
+              }}
+            >
+              Undo
+            </button>
+          </div>
+        )}
         <p className="small muted" style={{ margin: 0 }}>Click a move in the table to play it on the board.</p>
       </section>
 
@@ -409,7 +442,7 @@ function Builder({
             ]}
           />
         )}
-        <RepTree rep={rep} onPick={(path) => {
+        <RepTree rep={rep} onRemove={removeMove} onPick={(path) => {
           const s = new GameState();
           s.loadGame(START_FEN, path);
           load(s);
@@ -419,11 +452,156 @@ function Builder({
   );
 }
 
+/** The repertoire chosen in the settings, falling back to the first of the remembered colour. */
+function currentEntry(store: RepertoireStore, settings: Settings): RepertoireEntry {
+  const chosen = store.find(settings.repertoireId);
+  if (chosen) return chosen;
+  const c = settings.repertoireColor === "black" ? "b" : "w";
+  store.get(c); // creates one if the colour has none
+  return store.byColor(c)[0];
+}
+
+/** Choose, create, rename, duplicate and delete repertoires. */
+function RepertoirePicker({
+  update,
+  entry,
+}: {
+  update: (p: Partial<Settings>) => void;
+  entry: RepertoireEntry;
+}) {
+  const data = useData();
+  const store = data.repertoire;
+  const [mode, setMode] = useState<null | "new" | "rename" | "delete">(null);
+  const [name, setName] = useState("");
+  const [newColor, setNewColor] = useState<"w" | "b">(entry.color);
+  const choose = (e: RepertoireEntry) => update({ repertoireId: e.id, repertoireColor: e.color === "w" ? "white" : "black" });
+  const groups: ["w" | "b", string][] = [
+    ["w", "White"],
+    ["b", "Black"],
+  ];
+
+  return (
+    <div style={{ display: "grid", gap: 6, flex: 1, minWidth: 0 }}>
+      <div className="row">
+        <select
+          value={entry.id}
+          onChange={(e) => {
+            const next = store.find(e.target.value);
+            if (next) choose(next);
+            setMode(null);
+          }}
+          aria-label="Repertoire"
+          data-tip={TIPS.repColour}
+          style={{ flex: "1 1 180px" }}
+        >
+          {groups.map(([c, label]) => (
+            <optgroup key={c} label={label}>
+              {store.byColor(c).map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name} · {e.rep.size()} moves
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <button className="btn" type="button" data-tip={TIPS.repNew} onClick={() => { setMode("new"); setName(""); setNewColor(entry.color); }}>
+          New
+        </button>
+        <button className="btn" type="button" data-tip={TIPS.repRename} onClick={() => { setMode("rename"); setName(entry.name); }}>
+          Rename
+        </button>
+        <button
+          className="btn"
+          type="button"
+          data-tip={TIPS.repDuplicate}
+          onClick={() => {
+            const copy = store.duplicate(entry.id);
+            if (copy) {
+              data.save("repertoire");
+              choose(copy);
+            }
+            setMode(null);
+          }}
+        >
+          Duplicate
+        </button>
+        <button className="btn" type="button" data-tip={TIPS.repDelete} onClick={() => setMode("delete")}>
+          Delete
+        </button>
+      </div>
+      {mode === "new" && (
+        <form
+          className="row"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            const created = store.create(name, newColor);
+            data.save("repertoire");
+            choose(created);
+            setMode(null);
+          }}
+        >
+          <input id="rep-new-name" type="text" autoFocus placeholder="Name, e.g. Sharp 1.e4" value={name} onChange={(e) => setName(e.target.value)} className="grow" />
+          <select value={newColor} onChange={(e) => setNewColor(e.target.value as "w" | "b")} aria-label="Colour">
+            <option value="w">White</option>
+            <option value="b">Black</option>
+          </select>
+          <button className="btn primary" type="submit">Create</button>
+          <button className="btn" type="button" onClick={() => setMode(null)}>Cancel</button>
+        </form>
+      )}
+      {mode === "rename" && (
+        <form
+          className="row"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            store.rename(entry.id, name);
+            data.save("repertoire");
+            setMode(null);
+          }}
+        >
+          <input id="rep-rename" type="text" autoFocus value={name} onChange={(e) => setName(e.target.value)} className="grow" />
+          <button className="btn primary" type="submit">Save</button>
+          <button className="btn" type="button" onClick={() => setMode(null)}>Cancel</button>
+        </form>
+      )}
+      {mode === "delete" && (
+        <div className="row small">
+          <span className="bad">
+            Delete “{entry.name}” and its {entry.rep.size()} moves? This can't be undone.
+          </span>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => {
+              store.remove(entry.id);
+              const fallback = store.byColor(entry.color)[0] ?? store.entries[0] ?? store.create("", entry.color);
+              data.save("repertoire");
+              choose(fallback);
+              setMode(null);
+            }}
+          >
+            Delete
+          </button>
+          <button className="btn" type="button" onClick={() => setMode(null)}>Cancel</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function color(rep: Repertoire): "w" | "b" {
   return rep.userToMove(ROOT_EPD) ? "w" : "b";
 }
 
-function RepTree({ rep, onPick }: { rep: Repertoire; onPick: (path: string[]) => void }) {
+function RepTree({
+  rep,
+  onPick,
+  onRemove,
+}: {
+  rep: Repertoire;
+  onPick: (path: string[]) => void;
+  onRemove: (positionEpd: string, uci: string) => void;
+}) {
   const now = Date.now() / 1000;
   const shown = new Set<string>();
   const render = (fen: string, path: string[], depth: number): JSX.Element | null => {
@@ -449,6 +627,9 @@ function RepTree({ rep, onPick }: { rep: Repertoire; onPick: (path: string[]) =>
                 <span className="muted small">{tag}</span>
                 {joined && <span className="muted small"> ↪ continues at {sanLine(joined)}</span>}
               </button>
+              <button type="button" className="tree-x" aria-label={`Remove ${label}`} data-tip={TIPS.repRemoveMove} onClick={() => onRemove(e, uci)}>
+                ✕
+              </button>
               {depth < 40 && render(g.fen(), [...path, uci], depth + 1)}
             </li>
           );
@@ -457,7 +638,7 @@ function RepTree({ rep, onPick }: { rep: Repertoire; onPick: (path: string[]) =>
     );
   };
   const tree = render(START_FEN, [], 0);
-  return tree ? <div className="tree" data-tip={TIPS.repTree}>{tree}</div> : <p className="small muted">Your lines appear here.</p>;
+  return tree ? <div className="tree">{tree}</div> : <p className="small muted">Your lines appear here.</p>;
 }
 
 // ── Training ─────────────────────────────────────────────────────────────────

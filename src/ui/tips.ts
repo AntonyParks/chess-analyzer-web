@@ -81,7 +81,13 @@ export const TIPS = {
   openGame: "Open the game on chess.com.",
 
   // Repertoire
-  repColour: "Which repertoire to build and train: White or Black.",
+  repColour: "Which repertoire to build and train. You can keep several for each colour.",
+  repNew: "Start a new, empty repertoire for White or Black.",
+  repRename: "Change this repertoire's name.",
+  repDuplicate: "Make a copy of this repertoire (moves, review progress and game counts) to experiment with.",
+  repDelete: "Delete this repertoire and all its moves.",
+  repRemoveMove: "Remove this move from the repertoire, and whatever only it led to.",
+  repUndo: "Put back what the last removal took out.",
   repCoverage: "A reply you have not prepared is flagged as a gap when it comes up in at least 1 game in this many.",
   repRating: "Lichess games in this rating band count towards the game counts and gaps.",
   repAdd: "Add every move from the start to the position on the board to your repertoire.",

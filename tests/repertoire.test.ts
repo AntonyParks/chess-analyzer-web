@@ -201,39 +201,88 @@ describe("Repertoire", () => {
 });
 
 describe("RepertoireStore", () => {
-  it("round-trips through JSON and rejects corrupt input", () => {
+  it("starts with one White and one Black repertoire", () => {
     const store = new rp.RepertoireStore();
-    store.white.addLine(START_FEN, line(["e4", "e5", "Nf3"]));
-    store.white.recordStats(epdAfter("e4"), 10, [["e7e5", "e5", 7]]);
-    store.white.grade(rp.ROOT_EPD, true, 0);
-    store.black.addLine(START_FEN, line(["e4", "c5"]));
+    expect(store.entries.map((e) => [e.name, e.color])).toEqual([
+      ["White repertoire", "w"],
+      ["Black repertoire", "b"],
+    ]);
+  });
+
+  it("holds several named repertoires per colour, and round-trips them", () => {
+    const store = new rp.RepertoireStore([]);
+    const sharp = store.create("  Sharp   e4 ", "w");
+    const quiet = store.create("", "w");
+    const najdorf = store.create("Najdorf", "b");
+    expect(sharp.name).toBe("Sharp e4");
+    expect(quiet.name).toBe("White repertoire"); // an empty name falls back
+    sharp.rep.addLine(START_FEN, line(["e4", "e5", "Nf3"]));
+    sharp.rep.recordStats(epdAfter("e4"), 10, [["e7e5", "e5", 7]]);
+    sharp.rep.grade(rp.ROOT_EPD, true, 0);
+    quiet.rep.addLine(START_FEN, line(["d4", "d5", "c4"]));
+    najdorf.rep.addLine(START_FEN, line(["e4", "c5"]));
+    store.rename(quiet.id, "Queen's Gambit");
+    expect(store.byColor("w").map((e) => e.name)).toEqual(["Sharp e4", "Queen's Gambit"]);
+
     const again = rp.RepertoireStore.fromJSON(JSON.stringify(store));
-    expect(again.white.userMove(rp.ROOT_EPD)).toBe("e2e4");
-    expect(again.white.cards.get(rp.ROOT_EPD)!.interval).toBe(1);
-    expect(again.white.stats.get(epdAfter("e4"))!.games("e7e5")).toBe(7);
-    expect(again.black.userMove(epdAfter("e4"))).toBe("c7c5");
-    expect(again.get("w")).toBe(again.white);
+    expect(again.entries.map((e) => [e.id, e.name, e.color])).toEqual(store.entries.map((e) => [e.id, e.name, e.color]));
+    const s2 = again.find(sharp.id)!.rep;
+    expect(s2.userMove(rp.ROOT_EPD)).toBe("e2e4");
+    expect(s2.cards.get(rp.ROOT_EPD)!.interval).toBe(1);
+    expect(s2.stats.get(epdAfter("e4"))!.games("e7e5")).toBe(7);
+    expect(again.find(quiet.id)!.rep.userMove(rp.ROOT_EPD)).toBe("d2d4");
+    expect(again.find(najdorf.id)!.rep.userMove(epdAfter("e4"))).toBe("c7c5");
+  });
+
+  it("duplicates, restores and removes", () => {
+    const store = new rp.RepertoireStore([]);
+    const a = store.create("Main", "w");
+    a.rep.addLine(START_FEN, line(["e4", "e5", "Nf3"]));
+    const b = store.duplicate(a.id)!;
+    expect(b.name).toBe("Main (copy)");
+    expect(store.entries.map((e) => e.id)).toEqual([a.id, b.id]);
+    b.rep.remove(epdAfter("e4"), "e7e5"); // the copy is independent
+    expect(a.rep.size()).toBe(3);
+    expect(b.rep.size()).toBe(1); // 1...e5 went, and 2.Nf3 below it
+    const snapshot = a.rep.toJSON();
+    a.rep.remove(rp.ROOT_EPD, "e2e4");
+    expect(store.find(a.id)!.rep.size()).toBe(0);
+    store.restore(a.id, snapshot);
+    expect(store.find(a.id)!.rep.size()).toBe(3);
+    store.remove(b.id);
+    expect(store.entries.map((e) => e.id)).toEqual([a.id]);
+    expect(store.get("b").size()).toBe(0); // a missing colour gets a fresh repertoire
+    expect(store.byColor("b")).toHaveLength(1);
+  });
+
+  it("rejects corrupt input", () => {
     expect(() => rp.RepertoireStore.fromJSON("{oops")).toThrow();
     expect(() => rp.RepertoireStore.fromJSON([])).toThrow();
     expect(() => rp.RepertoireStore.fromJSON({ white: { nodes: [] } })).toThrow();
     expect(() => rp.RepertoireStore.fromJSON({ white: { cards: { x: [1, 2] } } })).toThrow();
     expect(() => rp.RepertoireStore.fromJSON({ white: { stats: { x: [1] } } })).toThrow();
     expect(() => rp.RepertoireStore.fromJSON({ black: { nodes: { x: { a: 1 } } } })).toThrow();
+    expect(() => rp.RepertoireStore.fromJSON({ version: 2, repertoires: [{ name: "x", color: "red" }] })).toThrow();
   });
 
-  it("imports a desktop repertoire.json unchanged", () => {
+  it("imports a desktop repertoire.json as one White and one Black repertoire", () => {
     // Written by the desktop app's RepertoireStore.save().
     const desktop =
       '{"version":1,"white":{"nodes":{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -":{"e2e4":"e4"},"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -":{"e7e5":"e5","c7c5":"c5"},"rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -":{"g1f3":"Nf3"},"rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -":{"b8c6":"Nc6"},"r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq -":{"f1b5":"Bb5"},"rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -":{"g1f3":"Nf3"},"rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -":{"d7d6":"d6"},"rnbqkbnr/pp2pppp/3p4/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq -":{"d2d4":"d4"},"rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq -":{"c5d4":"cxd4"},"rnbqkbnr/pp2pppp/3p4/8/3pP3/5N2/PPP2PPP/RNBQKB1R w KQkq -":{"f3d4":"Nxd4"},"rnbqkbnr/pp2pppp/3p4/8/3NP3/8/PPP2PPP/RNBQKB1R b KQkq -":{"g8f6":"Nf6"},"rnbqkb1r/pp2pppp/3p1n2/8/3NP3/8/PPP2PPP/RNBQKB1R w KQkq -":{"b1c3":"Nc3"}},"stats":{"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -":[1000,{"e7e5":["e5",450],"c7c5":["c5",400]}]},"cards":{"r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq -":[0.0,2.5,0.0,0,0,false],"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -":[0.0,2.3,1700300000.0,3,1,true],"rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -":[0.0,2.5,0.0,0,0,false],"rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -":[0.0,2.5,0.0,0,0,false],"rnbqkb1r/pp2pppp/3p1n2/8/3NP3/8/PPP2PPP/RNBQKB1R w KQkq -":[0.0,2.5,0.0,0,0,false],"rnbqkbnr/pp2pppp/3p4/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq -":[0.0,2.5,0.0,0,0,false],"rnbqkbnr/pp2pppp/3p4/8/3pP3/5N2/PPP2PPP/RNBQKB1R w KQkq -":[0.0,2.5,0.0,0,0,false]}},"black":{"nodes":{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -":{"d2d4":"d4","e2e4":"e4"},"rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq -":{"g8f6":"Nf6"},"rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq -":{"c2c4":"c4"},"rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq -":{"e7e6":"e6"},"rnbqkb1r/pppp1ppp/4pn2/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq -":{"b1c3":"Nc3"},"rnbqkb1r/pppp1ppp/4pn2/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq -":{"f8b4":"Bb4"},"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -":{"e7e5":"e5"},"rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -":{"g1f3":"Nf3"},"rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -":{"b8c6":"Nc6"}},"stats":{},"cards":{"rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq -":[0.0,2.5,0.0,0,0,false],"rnbqkb1r/pppp1ppp/4pn2/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq -":[0.0,2.5,0.0,0,0,false],"rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq -":[0.0,2.5,0.0,0,0,false],"rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -":[0.0,2.5,0.0,0,0,false],"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -":[0.0,2.5,0.0,0,0,false]}}}';
     const store = rp.RepertoireStore.fromJSON(JSON.parse(desktop));
-    const out = JSON.parse(JSON.stringify(store.toJSON()));
-    expect(out).toEqual(JSON.parse(desktop));
-    // Key order is kept too (the user's move per position is the first key).
-    expect(JSON.stringify(out.white.nodes)).toBe(JSON.stringify(JSON.parse(desktop).white.nodes));
-    expect(store.white.userMove(rp.ROOT_EPD)).toBe("e2e4");
-    expect(store.white.cards.get(rp.ROOT_EPD)!.lapses).toBe(1);
-    // Every EPD the desktop wrote is one this port computes for the same position.
-    expect(store.white.size()).toBe(13);
-    expect(store.black.contains(epdAfter("d4", "Nf6", "c4", "e6", "Nc3", "Bb4"))).toBe(true);
+    expect(store.entries.map((e) => [e.name, e.color])).toEqual([
+      ["White repertoire", "w"],
+      ["Black repertoire", "b"],
+    ]);
+    const white = store.byColor("w")[0].rep;
+    const black = store.byColor("b")[0].rep;
+    // The moves, cards and counts come through unchanged, key order included.
+    expect(JSON.parse(JSON.stringify(white.toJSON()))).toEqual(JSON.parse(desktop).white);
+    expect(JSON.parse(JSON.stringify(black.toJSON()))).toEqual(JSON.parse(desktop).black);
+    expect(JSON.stringify(white.toJSON().nodes)).toBe(JSON.stringify(JSON.parse(desktop).white.nodes));
+    expect(white.userMove(rp.ROOT_EPD)).toBe("e2e4");
+    expect(white.cards.get(rp.ROOT_EPD)!.lapses).toBe(1);
+    expect(white.size()).toBe(13);
+    expect(black.contains(epdAfter("d4", "Nf6", "c4", "e6", "Nc3", "Bb4"))).toBe(true);
   });
 });

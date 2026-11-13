@@ -17,6 +17,7 @@ export interface Settings {
   puzzleMode: string;
   puzzleOrder: string;
   repertoireColor: "white" | "black";
+  repertoireId: string; // the repertoire being built or trained ("" = the first of repertoireColor)
   repertoireRatings: number[];
   repertoireCoverage: number;
 }
@@ -37,6 +38,7 @@ export const DEFAULTS: Settings = {
   puzzleMode: "unsolved",
   puzzleOrder: "easiest",
   repertoireColor: "white",
+  repertoireId: "",
   repertoireRatings: [1200, 1400, 1600],
   repertoireCoverage: 50,
 };

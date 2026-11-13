@@ -173,3 +173,7 @@ table.data tr.selected { background: var(--surface-2); box-shadow: inset 3px 0 0
 
 .tooltip { position: fixed; z-index: 100; pointer-events: none; padding: 6px 9px; border-radius: 6px; background: #1d2422; color: #f2f5f3; font-size: 12px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
 @media (prefers-color-scheme: dark) { .tooltip { background: #e8ece9; color: #1a201e; } }
+.tree li { display: block; }
+.tree li > .tree-x { visibility: hidden; border: 0; background: transparent; color: var(--bad); cursor: pointer; padding: 0 4px; font-size: 11px; }
+.tree li:hover > .tree-x, .tree li > .tree-x:focus-visible { visibility: visible; }
+@media (hover: none) { .tree li > .tree-x { visibility: visible; } }

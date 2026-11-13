@@ -148,7 +148,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const s = stores.current;
   const summary = ready
-    ? `${s.puzzles.size} puzzles · White repertoire ${s.repertoire.white.size()} moves · Black repertoire ${s.repertoire.black.size()} moves`
+    ? `${s.puzzles.size} puzzles · ${s.repertoire.entries.length} repertoire${s.repertoire.entries.length === 1 ? "" : "s"} (${s.repertoire.entries.map((e) => `${e.name}: ${e.rep.size()} moves`).join(", ")})`
     : "Loading your data…";
 
   const value = useMemo<DataApi>(

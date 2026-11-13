@@ -636,28 +636,127 @@ export class TrainSession {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
-/** Both colours' repertoires, (de)serialised in the desktop's repertoire.json shape. */
+/** One named repertoire: its colour, name and moves (with their review cards and counts). */
+export interface RepertoireEntry {
+  id: string;
+  name: string;
+  color: Color;
+  rep: Repertoire;
+}
+
+/** Version 2 file: any number of named repertoires per colour. */
+export interface StoreJSONv2 {
+  version: 2;
+  repertoires: (RepertoireJSON & { id: string; name: string; color: "white" | "black" })[];
+}
+
+export const DEFAULT_NAMES: Record<Color, string> = { w: "White repertoire", b: "Black repertoire" };
+
+function newId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/**
+ * Every repertoire the user has, in the order they were made. Reads both the desktop app's
+ * single White + Black file (version 1) and the multi-repertoire version 2 written here.
+ */
 export class RepertoireStore {
-  constructor(
-    public white: Repertoire = new Repertoire("w"),
-    public black: Repertoire = new Repertoire("b"),
-  ) {}
+  entries: RepertoireEntry[];
 
+  constructor(entries?: RepertoireEntry[]) {
+    this.entries = entries ?? [
+      { id: newId(), name: DEFAULT_NAMES.w, color: "w", rep: new Repertoire("w") },
+      { id: newId(), name: DEFAULT_NAMES.b, color: "b", rep: new Repertoire("b") },
+    ];
+  }
+
+  find(id: string | null | undefined): RepertoireEntry | undefined {
+    return this.entries.find((e) => e.id === id);
+  }
+
+  byColor(color: Color): RepertoireEntry[] {
+    return this.entries.filter((e) => e.color === color);
+  }
+
+  /** The first repertoire of a colour (created if there is none). */
   get(color: Color): Repertoire {
-    return color === "w" ? this.white : this.black;
+    return (this.byColor(color)[0] ?? this.create(DEFAULT_NAMES[color], color)).rep;
   }
 
-  toJSON(): StoreJSON {
-    return { version: STORE_VERSION, white: this.white.toJSON(), black: this.black.toJSON() };
+  create(name: string, color: Color): RepertoireEntry {
+    const entry: RepertoireEntry = { id: newId(), name: cleanName(name, color), color, rep: new Repertoire(color) };
+    this.entries.push(entry);
+    return entry;
   }
 
-  /** Accepts the parsed object or the JSON text. Throws on malformed input. */
+  rename(id: string, name: string): void {
+    const e = this.find(id);
+    if (e) e.name = cleanName(name, e.color);
+  }
+
+  /** A copy with its own moves, cards and counts. */
+  duplicate(id: string, name?: string): RepertoireEntry | undefined {
+    const e = this.find(id);
+    if (!e) return undefined;
+    const copy: RepertoireEntry = {
+      id: newId(),
+      name: cleanName(name ?? `${e.name} (copy)`, e.color),
+      color: e.color,
+      rep: Repertoire.fromJSON(e.color, JSON.parse(JSON.stringify(e.rep.toJSON()))),
+    };
+    this.entries.splice(this.entries.indexOf(e) + 1, 0, copy);
+    return copy;
+  }
+
+  remove(id: string): void {
+    this.entries = this.entries.filter((e) => e.id !== id);
+  }
+
+  /** Put a repertoire's moves back to an earlier state (undo). */
+  restore(id: string, json: RepertoireJSON): void {
+    const e = this.find(id);
+    if (e) e.rep = Repertoire.fromJSON(e.color, json);
+  }
+
+  toJSON(): StoreJSONv2 {
+    return {
+      version: 2,
+      repertoires: this.entries.map((e) => ({
+        id: e.id,
+        name: e.name,
+        color: e.color === "w" ? "white" : "black",
+        ...e.rep.toJSON(),
+      })),
+    };
+  }
+
+  /** Accepts the parsed object or the JSON text, version 1 or 2. Throws on malformed input. */
   static fromJSON(raw: unknown): RepertoireStore {
     const data = typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
     if (!isRecord(data)) throw new Error("top-level JSON value is not an object");
-    return new RepertoireStore(
-      Repertoire.fromJSON("w", data.white ?? {}),
-      Repertoire.fromJSON("b", data.black ?? {}),
-    );
+    if (Array.isArray(data.repertoires)) {
+      const entries = data.repertoires.map((r: unknown): RepertoireEntry => {
+        if (!isRecord(r)) throw new Error("repertoire entry is not an object");
+        if (r.color !== "white" && r.color !== "black") throw new Error("repertoire colour must be white or black");
+        const color: Color = r.color === "white" ? "w" : "b";
+        return {
+          id: typeof r.id === "string" && r.id ? r.id : newId(),
+          name: cleanName(typeof r.name === "string" ? r.name : "", color),
+          color,
+          rep: Repertoire.fromJSON(color, { nodes: r.nodes, stats: r.stats, cards: r.cards }),
+        };
+      });
+      return new RepertoireStore(entries);
+    }
+    // Version 1 (the desktop app): one White and one Black repertoire.
+    return new RepertoireStore([
+      { id: newId(), name: DEFAULT_NAMES.w, color: "w", rep: Repertoire.fromJSON("w", data.white ?? {}) },
+      { id: newId(), name: DEFAULT_NAMES.b, color: "b", rep: Repertoire.fromJSON("b", data.black ?? {}) },
+    ]);
   }
+}
+
+function cleanName(name: string, color: Color): string {
+  const t = name.trim().replace(/\s+/g, " ").slice(0, 80);
+  return t || DEFAULT_NAMES[color];
 }
