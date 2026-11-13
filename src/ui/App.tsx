@@ -11,6 +11,7 @@ import { LichessProvider } from "./lichess";
 import { AnalysePage } from "./pages/AnalysePage";
 import { ExplorerPage } from "./pages/ExplorerPage";
 import { InsightsPage } from "./pages/InsightsPage";
+import { PuzzlesPage } from "./pages/PuzzlesPage";
 import { RepertoirePage } from "./pages/RepertoirePage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { SettingsPage, redirectUri } from "./pages/SettingsPage";
@@ -148,6 +149,8 @@ function Page({
       return withBoard(<InsightsPage settings={settings} />);
     case "review":
       return withBoard(<ReviewPage />);
+    case "puzzles":
+      return <PuzzlesPage settings={settings} update={update} setBoardBusy={setBoardBusy} />;
     case "repertoire":
       return <RepertoirePage settings={settings} update={update} setBoardBusy={setBoardBusy} withBoard={withBoard} />;
     case "settings":
