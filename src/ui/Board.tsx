@@ -45,6 +45,9 @@ interface DragState {
   x: number;
   y: number;
   moved: boolean;
+  /** Where on the piece it was grabbed (px from the square's top-left), kept under the pointer. */
+  grabX: number;
+  grabY: number;
 }
 
 export function Board(props: BoardProps) {
@@ -56,7 +59,8 @@ export function Board(props: BoardProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [flash, setFlash] = useState<{ squares: number[]; kind: "good" | "bad" } | null>(null);
   const [promo, setPromo] = useState<string[] | null>(null);
-  const [drag, setDrag] = useState<{ from: number; x: number; y: number } | null>(null);
+  // The dragged piece's top-left corner (px in the board) and the grab point within it.
+  const [drag, setDrag] = useState<{ from: number; x: number; y: number; grabX: number; grabY: number } | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const [animFrom, setAnimFrom] = useState<Map<number, number> | null>(null);
@@ -153,7 +157,18 @@ export function Board(props: BoardProps) {
     }
     if (canMove(sq) && targetsOf(sq).length) {
       select(sq);
-      dragRef.current = { from: sq, id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+      const r = boardRef.current!.getBoundingClientRect();
+      const size = r.width / 8;
+      const [c, row] = xy(sq);
+      dragRef.current = {
+        from: sq,
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        moved: false,
+        grabX: e.clientX - r.left - c * size,
+        grabY: e.clientY - r.top - row * size,
+      };
       try {
         boardRef.current!.setPointerCapture(e.pointerId);
       } catch {
@@ -169,7 +184,7 @@ export function Board(props: BoardProps) {
     if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5) return;
     d.moved = true;
     const r = boardRef.current!.getBoundingClientRect();
-    setDrag({ from: d.from, x: e.clientX - r.left, y: e.clientY - r.top });
+    setDrag({ from: d.from, x: e.clientX - r.left - d.grabX, y: e.clientY - r.top - d.grabY, grabX: d.grabX, grabY: d.grabY });
   };
   const endDrag = (e: React.PointerEvent, cancelled: boolean) => {
     const d = dragRef.current;
@@ -240,9 +255,12 @@ export function Board(props: BoardProps) {
     const key = (p === p.toUpperCase() ? "w" : "b") + p.toUpperCase();
     let transform: string;
     let cls = "pc";
+    let origin: string | undefined;
     if (drag && drag.from === sq) {
-      const size = boardRef.current!.getBoundingClientRect().width / 8;
-      transform = `translate(${drag.x - size / 2}px, ${drag.y - size / 2}px)`;
+      // The point that was grabbed stays under the pointer (and the lift grows around it).
+      // Lift it a little: the scale comes after the translate, so it only grows the piece.
+      transform = `translate(${drag.x}px, ${drag.y}px) scale(1.12)`;
+      origin = `${drag.grabX}px ${drag.grabY}px`;
       cls += " dragging";
     } else {
       const start = animFrom?.get(sq);
@@ -250,7 +268,7 @@ export function Board(props: BoardProps) {
       transform = `translate(${c * 100}%, ${r * 100}%)`;
       if (animate && animFrom === null) cls += " moving";
     }
-    pieces.push(<div key={sq} className={cls} style={{ backgroundImage: `url("${PIECES[key]}")`, transform }} />);
+    pieces.push(<div key={sq} className={cls} style={{ backgroundImage: `url("${PIECES[key]}")`, transform, transformOrigin: origin }} />);
   }
 
   return (

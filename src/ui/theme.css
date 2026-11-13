@@ -116,7 +116,7 @@ a { color: var(--accent); }
 .pieces { position: absolute; inset: 0; pointer-events: none; }
 .pc { position: absolute; left: 0; top: 0; width: 12.5%; height: 12.5%; background-size: 100% 100%; will-change: transform; z-index: 2; }
 .pc.moving { transition: transform 200ms ease-out; }
-.pc.dragging { z-index: 6; scale: 1.12; }
+.pc.dragging { z-index: 6; }
 .arrows { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 @media (prefers-reduced-motion: reduce) { .pc.moving { transition: none; } }
 .promo { position: absolute; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; gap: 6px; z-index: 10; }
