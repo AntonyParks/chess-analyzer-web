@@ -145,33 +145,54 @@ function Builder({
   }, [result, rep]);
 
   // Fetch counts for the repertoire's positions that have none yet, in the background.
-  const [statsRun, setStatsRun] = useState(0);
+  // One runner at a time; it re-checks after every repertoire change (new lines included).
+  const stats = useRef({ running: false, alive: true, failed: new Set<string>(), query, rep });
+  stats.current.query = query;
+  stats.current.rep = rep;
+  const [statsNote, setStatsNote] = useState("");
   useEffect(() => {
-    if (!settings.lichessToken) return;
-    const todo = rep.missingStats().slice(0, STATS_BATCH);
-    if (!todo.length) return;
-    let live = true;
-    (async () => {
-      let fetched = 0;
-      for (const e of todo) {
-        if (!live) return;
-        try {
-          const r = await client.explorer(`${e} 0 1`, query);
-          rep.recordStats(e, r.total, r.moves.map((m) => [m.uci, m.san, m.total] as [string, string, number]));
-          fetched++;
-          data.save("repertoire");
-        } catch (err) {
-          if (err instanceof LichessRateLimited) break;
-        }
-        await new Promise((r) => setTimeout(r, 250));
-      }
-      if (live && fetched && rep.missingStats().length) setTimeout(() => live && setStatsRun((n) => n + 1), 1000);
-    })();
+    stats.current.alive = true;
     return () => {
-      live = false;
+      stats.current.alive = false;
     };
+  }, []);
+  useEffect(() => {
+    stats.current.failed.clear(); // new filters or login: try everything again
+  }, [query, settings.lichessToken]);
+  useEffect(() => {
+    const s = stats.current;
+    if (!settings.lichessToken || s.running) return;
+    const todo = () => s.rep.missingStats().filter((e) => !s.failed.has(e));
+    if (!todo().length) return;
+    s.running = true;
+    (async () => {
+      try {
+        for (let n = 0; n < STATS_BATCH * 10 && s.alive; n++) {
+          const e = todo()[0];
+          if (!e) break;
+          const target = s.rep;
+          try {
+            const r = await client.explorer(`${e} 0 1`, s.query);
+            target.recordStats(e, r.total, r.moves.map((m) => [m.uci, m.san, m.total] as [string, string, number]));
+            if (s.alive) data.save("repertoire");
+          } catch (err) {
+            if (err instanceof LichessRateLimited) {
+              if (s.alive) setStatsNote(`Lichess asked us to wait ${Math.round(err.retryAfter)} s before fetching more counts.`);
+              await new Promise((r) => setTimeout(r, err.retryAfter * 1000));
+              if (s.alive) setStatsNote("");
+              continue;
+            }
+            s.failed.add(e);
+          }
+          await new Promise((r) => setTimeout(r, 250));
+        }
+      } finally {
+        s.running = false;
+      }
+      if (s.alive && todo().length) data.save("repertoire"); // wakes this effect for the rest
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rep, settings.lichessToken, query, statsRun, data.version === 0]);
+  }, [rep, settings.lichessToken, query, data.version]);
 
   const gaps = useMemo(() => {
     const map = new Map<string, number>();
@@ -279,8 +300,17 @@ function Builder({
   const goToGap = () => {
     const all = rep.gaps(settings.repertoireCoverage);
     if (!all.length) {
-      const missing = rep.missingStats().length;
-      return setMessage(`No gaps at this coverage.${missing ? ` Still fetching counts for ${missing} positions.` : ""}`);
+      const missing = rep.missingStats();
+      const failed = missing.filter((e) => stats.current.failed.has(e)).length;
+      const waiting = missing.length - failed;
+      const s = (n: number) => `${n} position${n === 1 ? "" : "s"}`;
+      let note = "";
+      if (missing.length && !settings.lichessToken) note = ` Log in with Lichess in Settings to get game counts for ${s(missing.length)}.`;
+      else {
+        if (waiting) note += ` Still fetching game counts for ${s(waiting)}; try again in a moment.`;
+        if (failed) note += ` Lichess gave no counts for ${s(failed)}.`;
+      }
+      return setMessage(`No gaps at this coverage.${note}${statsNote ? ` ${statsNote}` : ""}`);
     }
     const g = all[0];
     const s = new GameState();
