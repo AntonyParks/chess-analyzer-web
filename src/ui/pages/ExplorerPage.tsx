@@ -1,5 +1,6 @@
 /** Explorer: what Lichess players play from the shown position, with Stockfish's evals. */
 import { RATING_CHOICES, SPEEDS, SPEED_LABELS, percentages } from "../../data/lichess";
+import { turnOf } from "../../core/chess";
 import { useGame } from "../game";
 import { SortTable, explorerColumns, useExplorer } from "../lichess";
 import type { Settings } from "../settings";
@@ -57,7 +58,8 @@ export function ExplorerPage({ settings, update }: { settings: Settings; update:
             columns={explorerColumns(fen, analysis?.evals, analysis?.rankMap, result.total)}
             rowKey={(m) => m.uci}
             onPick={(m) => play(m.uci)}
-            initialSort={2}
+            sortSpec={turnOf(fen) === "w" ? settings.sortWhite : settings.sortBlack}
+            onSortChange={(spec) => update(turnOf(fen) === "w" ? { sortWhite: spec } : { sortBlack: spec })}
           />
         )}
         <p className="small muted" style={{ margin: 0 }}>Click a move to play it. The Eval column fills in as Stockfish analyses the position.</p>

@@ -36,7 +36,9 @@ export const TIPS = {
   colEval: "Stockfish's evaluation after the move (White's point of view). Fills in as the engine analyses.",
   colGames: "How many Lichess games continued with this move.",
   colPlayed: "Share of the games in this position that continued with this move.",
-  colWdl: "Results after the move: White wins, draws, Black wins.",
+  colWhite: "How often White won after this move. Click to sort; the sort is remembered separately for White-to-move and Black-to-move positions.",
+  colDraw: "How often games were drawn after this move.",
+  colBlack: "How often Black won after this move. Click to sort; the sort is remembered separately for White-to-move and Black-to-move positions.",
   colAvg: "Average rating of the players who chose this move.",
 
   // Insights

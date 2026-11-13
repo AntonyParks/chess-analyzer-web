@@ -98,6 +98,8 @@ export function SortTable<R>({
   onPick,
   selected,
   initialSort = 0,
+  sortSpec,
+  onSortChange,
 }: {
   rows: R[];
   columns: Column<R>[];
@@ -105,8 +107,17 @@ export function SortTable<R>({
   onPick?: (r: R) => void;
   selected?: string | null;
   initialSort?: number;
+  /** A remembered sort ([column name, "asc" | "desc"]); with it the parent owns the sort. */
+  sortSpec?: string[];
+  onSortChange?: (spec: string[]) => void;
 }) {
-  const [sort, setSort] = useState<{ col: number; desc: boolean }>({ col: initialSort, desc: true });
+  const [own, setOwn] = useState<{ col: number; desc: boolean }>({ col: initialSort, desc: true });
+  const fromSpec = sortSpec ? columns.findIndex((c) => c.head === sortSpec[0]) : -1;
+  const sort = fromSpec >= 0 ? { col: fromSpec, desc: sortSpec![1] !== "asc" } : own;
+  const setSort = (next: { col: number; desc: boolean }) => {
+    if (onSortChange) onSortChange([columns[next.col].head, next.desc ? "desc" : "asc"]);
+    else setOwn(next);
+  };
   const sorted = useMemo(() => {
     const c = columns[sort.col];
     if (!c?.sort) return rows;
@@ -117,7 +128,8 @@ export function SortTable<R>({
       const d = x < y ? -1 : x > y ? 1 : 0;
       return sort.desc ? -d : d;
     });
-  }, [rows, columns, sort]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, columns, sort.col, sort.desc]);
   return (
     <div className="table-wrap">
       <table className="data">
@@ -128,7 +140,7 @@ export function SortTable<R>({
                 key={c.head}
                 className={c.num ? "num" : ""}
                 data-tip={c.title}
-                onClick={() => c.sort && setSort((s) => ({ col: i, desc: s.col === i ? !s.desc : true }))}
+                onClick={() => c.sort && setSort({ col: i, desc: sort.col === i ? !sort.desc : true })}
               >
                 {c.head}
                 {sort.col === i ? (sort.desc ? " ▾" : " ▴") : ""}
@@ -183,32 +195,28 @@ export function explorerColumns(
       cell: (m) => (total && m.total ? `${Math.round((100 * m.total) / total)}%` : "–"),
       sort: (m) => m.total,
     },
-    {
-      head: "White / Draw / Black",
-      title: TIPS.colWdl,
-      cell: (m) => {
-        if (!m.total) return "";
-        const [w, d, b] = percentages(m.white, m.draws, m.black);
-        return <WdlBar w={w} d={d} b={b} />;
-      },
-      sort: (m) => (m.total ? m.white / m.total : 0),
-    },
+    ...(["White", "Draw", "Black"] as const).map(
+      (side, k): Column<MoveStats> => ({
+        head: side,
+        num: true,
+        title: TIPS[`col${side}` as "colWhite" | "colDraw" | "colBlack"],
+        cell: (m) => (m.total ? <WdlCell pct={percentages(m.white, m.draws, m.black)[k]} side={side} /> : "–"),
+        sort: (m) => (m.total ? [m.white, m.draws, m.black][k] / m.total : -1),
+      }),
+    ),
     { head: "Avg", num: true, title: TIPS.colAvg, cell: (m) => m.averageRating ?? "–", sort: (m) => m.averageRating ?? 0 },
   ];
 }
 
-function WdlBar({ w, d, b }: { w: number; d: number; b: number }) {
-  const seg = (pct: number, bg: string, fg: string) =>
-    pct > 0 ? (
-      <span style={{ width: `${pct}%`, background: bg, color: fg, display: "inline-block", textAlign: "center", fontSize: 10, lineHeight: "16px", overflow: "hidden" }}>
-        {pct >= 12 ? `${pct}%` : ""}
-      </span>
-    ) : null;
+/** A result share with a thin bar under it, coloured like the side it belongs to. */
+function WdlCell({ pct, side }: { pct: number; side: "White" | "Draw" | "Black" }) {
+  const colour = side === "White" ? "#d8d8d4" : side === "Draw" ? "#9a9a9a" : "#3a3a3a";
   return (
-    <span style={{ display: "flex", width: 140, borderRadius: 3, overflow: "hidden", border: "1px solid var(--line)" }}>
-      {seg(w, "#f4f4f2", "#333")}
-      {seg(d, "#9a9a9a", "#111")}
-      {seg(b, "#2b2b2b", "#eee")}
+    <span style={{ display: "inline-grid", gap: 2, minWidth: 44 }}>
+      <span>{pct}%</span>
+      <span style={{ height: 3, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
+        <span style={{ display: "block", height: "100%", width: `${pct}%`, background: colour }} />
+      </span>
     </span>
   );
 }

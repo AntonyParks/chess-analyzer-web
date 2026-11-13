@@ -20,6 +20,9 @@ export interface Settings {
   repertoireId: string; // the repertoire being built or trained ("" = the first of repertoireColor)
   repertoireRatings: number[];
   repertoireCoverage: number;
+  /** Move-table sort for White-to-move and Black-to-move positions: [column, "asc" | "desc"]. */
+  sortWhite: string[];
+  sortBlack: string[];
 }
 
 export const DEFAULTS: Settings = {
@@ -41,6 +44,8 @@ export const DEFAULTS: Settings = {
   repertoireId: "",
   repertoireRatings: [1200, 1400, 1600],
   repertoireCoverage: 50,
+  sortWhite: ["Games", "desc"],
+  sortBlack: ["Games", "desc"],
 };
 
 const KEY = "chess-analyzer-settings-v1";

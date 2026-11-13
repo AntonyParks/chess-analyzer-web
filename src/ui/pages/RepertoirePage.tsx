@@ -5,7 +5,7 @@
  */
 import { Chess } from "chess.js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ROOT_EPD, START_FEN, epd, isLegal, moveToUci, playUci, sanLine, sanOf } from "../../core/chess";
+import { ROOT_EPD, START_FEN, epd, isLegal, moveToUci, playUci, sanLine, sanOf, turnOf } from "../../core/chess";
 import { GameState } from "../../core/gameState";
 import {
   type Deviation,
@@ -364,7 +364,11 @@ function Builder({
             {status || `${result?.opening} · ${result?.total.toLocaleString()} Lichess games at these ratings`}
           </p>
         )}
-        <SortTable rows={rows} columns={columns} rowKey={(m) => m.uci} onPick={(m) => (setSelected(m.uci), play(m.uci))} selected={selected} initialSort={2} />
+        <SortTable rows={rows} columns={columns} rowKey={(m) => m.uci} onPick={(m) => (setSelected(m.uci), play(m.uci))}
+          selected={selected}
+          sortSpec={turnOf(fen) === "w" ? settings.sortWhite : settings.sortBlack}
+          onSortChange={(spec) => update(turnOf(fen) === "w" ? { sortWhite: spec } : { sortBlack: spec })}
+        />
         <div className="row">
           <button className="btn primary" type="button" onClick={() => addLine(false)} data-tip={TIPS.repAdd}>
             Add line to here
