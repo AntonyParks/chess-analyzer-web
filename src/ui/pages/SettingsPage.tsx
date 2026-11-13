@@ -155,6 +155,26 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
         </div>
       </section>
       {message && <p className="small">{message}</p>}
+
+      <section className="panel">
+        <h2>About</h2>
+        <p className="small muted" style={{ margin: 0 }}>
+          Runs entirely in your browser: Stockfish 17.1 (WebAssembly) analyses on your device, and your games, puzzles and
+          repertoire are stored only in this browser. The only other sites contacted are chess.com (your public games) and
+          Lichess (opening data and login).
+        </p>
+        <p className="small muted" style={{ margin: 0 }}>
+          Stockfish is free software under the GPL-3 (
+          <a href="https://github.com/official-stockfish/Stockfish" target="_blank" rel="noopener noreferrer">
+            source
+          </a>
+          ). Pieces by Colin M.L. Burnett, CC BY-SA 3.0. This site's code:{" "}
+          <a href="https://github.com/AntonyParks/chess-analyzer-web" target="_blank" rel="noopener noreferrer">
+            AntonyParks/chess-analyzer-web
+          </a>{" "}
+          (MIT).
+        </p>
+      </section>
     </div>
   );
 }

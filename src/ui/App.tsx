@@ -87,10 +87,6 @@ export function App() {
           <InitialPosition />
           {loginMessage && <p className="small">{loginMessage}</p>}
           <Page tab={tab} settings={settings} update={update} setBoardBusy={setBoardBusy} />
-          <footer className="site">
-            Runs entirely in your browser: Stockfish 17.1 (WebAssembly, GPL-3) analyses on your device, and your
-            games, puzzles and repertoire are stored only in this browser. Pieces by Colin M.L. Burnett (CC BY-SA 3.0).
-          </footer>
         </div>
       </GameProvider>
       </LichessProvider>
