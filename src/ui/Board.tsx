@@ -24,8 +24,12 @@ export interface BoardProps {
   movable?: Color | "both" | "none";
   onMove?: (uci: string) => boolean | void;
   onSelect?: (square: string | null) => void;
-  /** square -> CSS colour behind the piece (the heatmap). */
+  /** square -> CSS colour behind the piece. */
   tints?: Record<string, string>;
+  /** square -> one colour per legal move of its piece, drawn as stacked bands (the heatmap). */
+  bands?: Record<string, string[]>;
+  /** target square -> colour of the move dot when a piece is selected (rank colours). */
+  dotColors?: Record<string, string>;
   /** square -> small label (e.g. the eval of moving the selected piece there). */
   labels?: Record<string, { text: string; color: string }>;
   arrows?: Arrow[];
@@ -195,10 +199,20 @@ export function Board(props: BoardProps) {
       if (flash?.squares.includes(sq)) cls.push(flash.kind === "bad" ? "fb" : "fg");
       if (targets.includes(sq)) cls.push(position[sq] ? "cap" : "dot");
       const tint = props.tints?.[name];
+      const bands = props.bands?.[name];
+      const dot = targets.includes(sq) ? props.dotColors?.[name] : undefined;
       const label = props.labels?.[name];
       cells.push(
         <div key={sq} className={cls.join(" ")}>
           {tint && <div className="tint" style={{ background: tint }} />}
+          {bands && bands.length > 0 && (
+            <div className="bands">
+              {bands.map((c, i) => (
+                <div key={i} style={{ background: c }} />
+              ))}
+            </div>
+          )}
+          {dot && <div className="dot-c" style={{ background: dot }} />}
           <div className="mark" />
           {col === 0 && <span className="coord r">{rank + 1}</span>}
           {row === 7 && <span className="coord f">{FILES[file]}</span>}

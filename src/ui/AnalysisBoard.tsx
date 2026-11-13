@@ -3,7 +3,7 @@
  * graph and navigation. Used by every page that works on the shared game.
  */
 import { useEffect, useMemo, useState } from "react";
-import { turnOf } from "../core/chess";
+import { legalUcis, turnOf } from "../core/chess";
 import { bestUci, formatBarText, formatCp, rankColor, winChance } from "../core/evaluation";
 import { Board, type Arrow } from "./Board";
 import { useGame } from "./game";
@@ -35,17 +35,27 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
     return () => window.removeEventListener("keydown", onKey);
   }, [game, goto]);
 
-  const tints = useMemo(() => {
+  // The desktop heatmap: each piece's square split into bands, one per legal move of that
+  // piece (in move-generation order), each coloured by that move's rank (red worst, gold best).
+  const bands = useMemo(() => {
     if (!settings.heatmap || !analysis) return undefined;
-    const best: Record<string, number> = {};
-    for (const [uci, rank] of Object.entries(analysis.rankMap)) {
-      const from = uci.slice(0, 2);
-      best[from] = Math.max(best[from] ?? 0, rank);
+    const out: Record<string, string[]> = {};
+    for (const uci of legalUcis(fen)) {
+      const rank = analysis.rankMap[uci];
+      if (rank === undefined) continue;
+      (out[uci.slice(0, 2)] ??= []).push(rankColor(rank));
     }
-    const out: Record<string, string> = {};
-    for (const [sq, rank] of Object.entries(best)) out[sq] = withAlpha(rankColor(rank), 0.55);
     return out;
-  }, [settings.heatmap, analysis]);
+  }, [settings.heatmap, analysis, fen]);
+
+  const dotColors = useMemo(() => {
+    if (!selected || !analysis) return undefined;
+    const out: Record<string, string> = {};
+    for (const [uci, rank] of Object.entries(analysis.rankMap)) {
+      if (uci.startsWith(selected)) out[uci.slice(2, 4)] = rankColor(rank);
+    }
+    return out;
+  }, [selected, analysis]);
 
   const labels = useMemo(() => {
     if (!selected || !analysis) return undefined;
@@ -79,7 +89,8 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
           animate={animate}
           onMove={(uci) => play(uci)}
           onSelect={setSelected}
-          tints={tints}
+          bands={bands}
+          dotColors={dotColors}
           labels={labels}
           arrows={arrows}
         />
@@ -100,10 +111,6 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
   );
 }
 
-function withAlpha(hex: string, a: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
-}
 
 export function EvalBar({ cp, flipped }: { cp: number | null; flipped: boolean }) {
   const share = cp === null ? 0.5 : (winChance(cp) + 1) / 2; // White's share of the bar
