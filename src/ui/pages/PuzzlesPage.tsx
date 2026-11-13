@@ -271,7 +271,7 @@ export function PuzzlesPage({
             {hasUser
               ? `${total} games downloaded${library.lastRefresh(user) ? ` · last refreshed ${new Date(library.lastRefresh(user) * 1000).toLocaleDateString()}` : ""}.`
               : "Your whole history is downloaded once; later refreshes fetch only new games."}{" "}
-            Scanning runs Stockfish on this device: allow a few seconds to half a minute per game. You can keep using the other tabs.
+            Scanning runs Stockfish on this device: a few seconds per game on a computer, slower on a phone. You can keep using the other tabs.
           </p>
           {scan.text && <p className="small" style={{ margin: 0 }}>{scan.text}</p>}
         </section>

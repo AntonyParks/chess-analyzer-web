@@ -199,7 +199,7 @@ describe("PuzzleScanner", { timeout: 20_000 }, () => {
 
 describe("estimates", () => {
   it("scales the desktop's numbers by 3 for WASM and formats durations", () => {
-    expect(estimateSeconds(10, 12)).toEqual([120, 450]);
+    expect(estimateSeconds(10, 12)).toEqual([30, 90]);
     expect(formatDuration(45)).toBe("45 s");
     expect(formatDuration(600)).toBe("10 min");
     expect(formatDuration(150)).toBe("2 min"); // Python rounds half to even

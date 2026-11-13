@@ -345,15 +345,12 @@ function argmax(scores: Record<string, number>): string {
   return best;
 }
 
-/**
- * A rough [low, high] scan time in seconds. The desktop measured about 4-15 s a game at depth
- * 12 (multi-threaded native Stockfish, ~4.5 s typical); single-threaded WASM Stockfish in the
- * browser is assumed to be about 3x slower, so this uses 12-45 s a game at depth 12.
- */
+/** A rough [low, high] scan time in seconds. */
 export function estimateSeconds(games: number, depth: number): [number, number] {
-  const WASM_SLOWDOWN = 3;
+  // Measured with the lite single-threaded WASM build on a desktop browser: about 2.5 s per
+  // game at depth 10, so roughly 3–9 s at depth 12. Each extra ply of depth costs about 1.5x.
   const scale = 1.5 ** (depth - DEFAULT_SCAN_DEPTH);
-  return [Math.trunc(games * 4 * WASM_SLOWDOWN * scale), Math.trunc(games * 15 * WASM_SLOWDOWN * scale)];
+  return [Math.trunc(games * 3 * scale), Math.trunc(games * 9 * scale)];
 }
 
 /** Python's round(): halves go to the even neighbour. */
