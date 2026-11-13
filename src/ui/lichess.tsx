@@ -88,6 +88,8 @@ export interface Column<R> {
   num?: boolean;
   cell: (row: R) => ReactNode;
   sort?: (row: R) => number | string;
+  /** The cell covers this many columns (the next ones draw no cell of their own). */
+  span?: number;
 }
 
 /** A sortable table; clicking a row calls ``onPick``. */
@@ -151,17 +153,25 @@ export function SortTable<R>({
         <tbody>
           {sorted.map((r) => (
             <tr key={rowKey(r)} className={selected === rowKey(r) ? "selected" : ""} onClick={() => onPick?.(r)}>
-              {columns.map((c) => (
-                <td key={c.head} className={c.num ? "num" : ""}>
-                  {c.cell(r)}
-                </td>
-              ))}
+              {columns.map((c, i) =>
+                coveredBySpan(columns, i) ? null : (
+                  <td key={c.head} className={c.num ? "num" : ""} colSpan={c.span}>
+                    {c.cell(r)}
+                  </td>
+                ),
+              )}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   );
+}
+
+/** Is column i drawn by an earlier column's spanning cell? */
+function coveredBySpan<R>(columns: Column<R>[], i: number): boolean {
+  for (let j = 0; j < i; j++) if ((columns[j].span ?? 1) > i - j) return true;
+  return false;
 }
 
 /** Columns shared by the Explorer and Repertoire tables. */
@@ -200,7 +210,9 @@ export function explorerColumns(
         head: side,
         num: true,
         title: TIPS[`col${side}` as "colWhite" | "colDraw" | "colBlack"],
-        cell: (m) => (m.total ? <WdlCell pct={percentages(m.white, m.draws, m.black)[k]} side={side} /> : "–"),
+        // One combined bar spans the three result columns; each heading still sorts on its own.
+        span: k === 0 ? 3 : undefined,
+        cell: (m) => (m.total ? <WdlBar m={m} /> : "–"),
         sort: (m) => (m.total ? [m.white, m.draws, m.black][k] / m.total : -1),
       }),
     ),
@@ -208,15 +220,34 @@ export function explorerColumns(
   ];
 }
 
-/** A result share with a thin bar under it, coloured like the side it belongs to. */
-function WdlCell({ pct, side }: { pct: number; side: "White" | "Draw" | "Black" }) {
-  const colour = side === "White" ? "#d8d8d4" : side === "Draw" ? "#9a9a9a" : "#3a3a3a";
-  return (
-    <span style={{ display: "inline-grid", gap: 2, minWidth: 44 }}>
-      <span>{pct}%</span>
-      <span style={{ height: 3, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
-        <span style={{ display: "block", height: "100%", width: `${pct}%`, background: colour }} />
+/** White / draw / Black shares as one bar across the three result columns. */
+function WdlBar({ m }: { m: MoveStats }) {
+  const [w, d, b] = percentages(m.white, m.draws, m.black);
+  const seg = (pct: number, bg: string, fg: string) =>
+    pct > 0 ? (
+      <span
+        style={{
+          width: `${pct}%`,
+          background: bg,
+          color: fg,
+          textAlign: "center",
+          fontSize: 11,
+          lineHeight: "18px",
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {pct >= 10 ? `${pct}%` : ""}
       </span>
+    ) : null;
+  return (
+    <span
+      style={{ display: "flex", width: "100%", minWidth: 160, borderRadius: 3, overflow: "hidden", border: "1px solid var(--line)" }}
+      aria-label={`White ${w}%, draw ${d}%, Black ${b}%`}
+    >
+      {seg(w, "#f4f4f2", "#333")}
+      {seg(d, "#9a9a9a", "#111")}
+      {seg(b, "#2b2b2b", "#eee")}
     </span>
   );
 }
