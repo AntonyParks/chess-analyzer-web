@@ -8,6 +8,7 @@ import { bestUci, formatBarText, formatCp, rankColor, winChance } from "../core/
 import { Board, type Arrow } from "./Board";
 import { useGame } from "./game";
 import type { Settings } from "./settings";
+import { TIPS } from "./tips";
 
 export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; extraArrows?: Arrow[] }) {
   const { game, play, goto, animate, thinking } = useGame();
@@ -99,10 +100,10 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
         />
       </div>
       <div className="row">
-        <button className="btn" type="button" onClick={() => goto(0)} aria-label="First move">⏮</button>
-        <button className="btn" type="button" onClick={() => goto(ply - 1)} aria-label="Previous move">◀</button>
-        <button className="btn" type="button" onClick={() => goto(ply + 1)} aria-label="Next move">▶</button>
-        <button className="btn" type="button" onClick={() => goto(game.moves.length)} aria-label="Last move">⏭</button>
+        <button className="btn" type="button" onClick={() => goto(0)} aria-label="First move" data-tip={TIPS.first}>⏮</button>
+        <button className="btn" type="button" onClick={() => goto(ply - 1)} aria-label="Previous move" data-tip={TIPS.prev}>◀</button>
+        <button className="btn" type="button" onClick={() => goto(ply + 1)} aria-label="Next move" data-tip={TIPS.next}>▶</button>
+        <button className="btn" type="button" onClick={() => goto(game.moves.length)} aria-label="Last move" data-tip={TIPS.last}>⏭</button>
         <span className="grow" />
         <span className="small muted">
           {cp === null ? "" : `${formatCp(cp)} · depth ${analysis?.depth ?? 0}`}
@@ -166,6 +167,7 @@ export function EvalGraph() {
   return (
     <svg
       className="evalgraph"
+      data-tip={TIPS.evalGraph}
       viewBox={`0 0 ${w} ${h}`}
       preserveAspectRatio="none"
       onClick={(e) => {

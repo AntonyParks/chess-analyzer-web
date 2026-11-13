@@ -14,6 +14,7 @@ import { useData } from "../data";
 import { useGame } from "../game";
 import { SortTable, explorerColumns, useExplorer, useLichess, type Column } from "../lichess";
 import type { Settings } from "../settings";
+import { TIPS } from "../tips";
 
 const ENGINE_EXTRA = 3;
 const STATS_BATCH = 40;
@@ -190,11 +191,11 @@ function Builder({
     ...explorerColumns(fen, analysis?.evals, analysis?.rankMap, result?.total ?? 0),
     {
       head: "Repertoire",
-      title: "★ your move · ✓ a reply you have prepared · ↪ joins one of your lines by another move order · ⚠ a reply you have not prepared that comes up often enough to cover",
+      title: TIPS.repMark,
       cell: (m) => {
         const k = markOf(m);
         return (
-          <span className={k.cls} title={k.tip}>
+          <span className={k.cls} data-tip={k.tip || undefined}>
             {k.text}
           </span>
         );
@@ -308,11 +309,12 @@ function Builder({
             value={settings.repertoireColor}
             onChange={(e) => update({ repertoireColor: e.target.value as "white" | "black" })}
             aria-label="Repertoire colour"
+            data-tip={TIPS.repColour}
           >
             <option value="white">White repertoire</option>
             <option value="black">Black repertoire</option>
           </select>
-          <label className="small row" style={{ gap: 4 }}>
+          <label className="small row" style={{ gap: 4 }} data-tip={TIPS.repCoverage}>
             Cover replies played in 1 of
             <input
               type="number"
@@ -328,7 +330,7 @@ function Builder({
         <div className="chips">
           <span className="small muted">Lichess ratings:</span>
           {RATING_CHOICES.filter((r) => r <= 2000).map((r) => (
-            <label key={r} className="chip">
+            <label key={r} className="chip" data-tip={TIPS.repRating}>
               <input
                 type="checkbox"
                 checked={settings.repertoireRatings.includes(r)}
@@ -349,13 +351,13 @@ function Builder({
         )}
         <SortTable rows={rows} columns={columns} rowKey={(m) => m.uci} onPick={(m) => (setSelected(m.uci), play(m.uci))} selected={selected} initialSort={2} />
         <div className="row">
-          <button className="btn primary" type="button" onClick={() => addLine(false)}>
+          <button className="btn primary" type="button" onClick={() => addLine(false)} data-tip={TIPS.repAdd}>
             Add line to here
           </button>
-          <button className="btn" type="button" onClick={removeLast}>
+          <button className="btn" type="button" onClick={removeLast} data-tip={TIPS.repRemove}>
             Remove last move
           </button>
-          <button className="btn" type="button" onClick={goToGap}>
+          <button className="btn" type="button" onClick={goToGap} data-tip={TIPS.repGap}>
             Go to biggest gap
           </button>
         </div>
@@ -378,13 +380,13 @@ function Builder({
       <section className="panel">
         <div className="row">
           <h2 className="grow">Train</h2>
-          <button className="btn primary" type="button" disabled={!due} onClick={() => onTrain(false)}>
+          <button className="btn primary" type="button" disabled={!due} onClick={() => onTrain(false)} data-tip={TIPS.repTrain}>
             Train due ({due})
           </button>
-          <button className="btn" type="button" disabled={!rep.cards.size} onClick={() => onTrain(true)}>
+          <button className="btn" type="button" disabled={!rep.cards.size} onClick={() => onTrain(true)} data-tip={TIPS.repPractise}>
             Practise all
           </button>
-          <button className="btn" type="button" onClick={checkGames} title="Where your downloaded chess.com games first left this repertoire">
+          <button className="btn" type="button" onClick={checkGames} data-tip={TIPS.repCheck}>
             Check my games
           </button>
         </div>
@@ -455,7 +457,7 @@ function RepTree({ rep, onPick }: { rep: Repertoire; onPick: (path: string[]) =>
     );
   };
   const tree = render(START_FEN, [], 0);
-  return tree ? <div className="tree">{tree}</div> : <p className="small muted">Your lines appear here.</p>;
+  return tree ? <div className="tree" data-tip={TIPS.repTree}>{tree}</div> : <p className="small muted">Your lines appear here.</p>;
 }
 
 // ── Training ─────────────────────────────────────────────────────────────────
@@ -638,16 +640,16 @@ function Trainer({
             {feedback.text}
           </p>
           <div className="row">
-            <button className="btn" type="button" onClick={hint} disabled={done || !expected}>
+            <button className="btn" type="button" onClick={hint} disabled={done || !expected} data-tip={TIPS.trainHint}>
               Hint
             </button>
-            <button className="btn" type="button" onClick={showMove} disabled={done || !expected}>
+            <button className="btn" type="button" onClick={showMove} disabled={done || !expected} data-tip={TIPS.trainShow}>
               Show move
             </button>
-            <button className="btn" type="button" onClick={nextLine} disabled={done}>
+            <button className="btn" type="button" onClick={nextLine} disabled={done} data-tip={TIPS.trainSkip}>
               Skip line
             </button>
-            <button className="btn primary" type="button" onClick={onStop}>
+            <button className="btn primary" type="button" onClick={onStop} data-tip={TIPS.trainStop}>
               {done ? "Back to building" : "Stop"}
             </button>
           </div>

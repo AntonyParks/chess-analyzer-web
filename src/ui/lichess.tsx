@@ -5,6 +5,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { epd, turnOf } from "../core/chess";
 import { cpPov, formatCp, rankColor, type MoveEval } from "../core/evaluation";
+import { TIPS } from "./tips";
 import {
   type ExplorerQuery,
   type ExplorerResult,
@@ -126,7 +127,7 @@ export function SortTable<R>({
               <th
                 key={c.head}
                 className={c.num ? "num" : ""}
-                title={c.title}
+                data-tip={c.title}
                 onClick={() => c.sort && setSort((s) => ({ col: i, desc: s.col === i ? !s.desc : true }))}
               >
                 {c.head}
@@ -161,11 +162,11 @@ export function explorerColumns(
   const turn = turnOf(fen);
   const evalOf = (m: MoveStats) => (evals?.[m.uci] ? cpPov(evals[m.uci].cpWhite, turn) : -1e9);
   return [
-    { head: "Move", cell: (m) => <b>{m.san}</b>, sort: (m) => m.san },
+    { head: "Move", title: TIPS.colMove, cell: (m) => <b>{m.san}</b>, sort: (m) => m.san },
     {
       head: "Eval",
       num: true,
-      title: "Stockfish's evaluation after the move (White's point of view)",
+      title: TIPS.colEval,
       cell: (m) =>
         evals?.[m.uci] ? (
           <span style={{ color: rankColor(ranks?.[m.uci] ?? 0.5), fontWeight: 700 }}>{formatCp(evals[m.uci].cpWhite)}</span>
@@ -174,16 +175,17 @@ export function explorerColumns(
         ),
       sort: evalOf,
     },
-    { head: "Games", num: true, cell: (m) => (m.total ? m.total.toLocaleString() : "–"), sort: (m) => m.total },
+    { head: "Games", num: true, title: TIPS.colGames, cell: (m) => (m.total ? m.total.toLocaleString() : "–"), sort: (m) => m.total },
     {
       head: "Played",
       num: true,
-      title: "Share of the games in this position that continued with the move",
+      title: TIPS.colPlayed,
       cell: (m) => (total && m.total ? `${Math.round((100 * m.total) / total)}%` : "–"),
       sort: (m) => m.total,
     },
     {
       head: "White / Draw / Black",
+      title: TIPS.colWdl,
       cell: (m) => {
         if (!m.total) return "";
         const [w, d, b] = percentages(m.white, m.draws, m.black);
@@ -191,7 +193,7 @@ export function explorerColumns(
       },
       sort: (m) => (m.total ? m.white / m.total : 0),
     },
-    { head: "Avg", num: true, title: "Average rating of the players", cell: (m) => m.averageRating ?? "–", sort: (m) => m.averageRating ?? 0 },
+    { head: "Avg", num: true, title: TIPS.colAvg, cell: (m) => m.averageRating ?? "–", sort: (m) => m.averageRating ?? 0 },
   ];
 }
 

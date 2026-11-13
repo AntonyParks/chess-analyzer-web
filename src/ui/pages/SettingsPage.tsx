@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { logout, startLogin } from "../../data/lichessAuth";
 import { useData } from "../data";
 import type { Settings } from "../settings";
+import { TIPS } from "../tips";
 
 export function redirectUri(): string {
   return `${location.origin}${location.pathname}`;
@@ -37,6 +38,7 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
             <button
               className="btn"
               type="button"
+              data-tip={TIPS.logout}
               onClick={async () => {
                 await logout(settings.lichessToken).catch(() => false);
                 update({ lichessToken: "" });
@@ -49,13 +51,14 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
         ) : (
           <>
             <div className="row">
-              <button className="btn primary" type="button" onClick={login}>
+              <button className="btn primary" type="button" onClick={login} data-tip={TIPS.login}>
                 Log in with Lichess
               </button>
             </div>
             <div className="row">
               <input
                 id="token"
+                data-tip={TIPS.token}
                 type="password"
                 placeholder="…or paste a personal API token (lip_…)"
                 value={token}
@@ -82,7 +85,7 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
       <section className="panel">
         <h2>Engine</h2>
         <div className="row">
-          <label htmlFor="set-depth">Board analysis depth</label>
+          <label htmlFor="set-depth" data-tip={TIPS.depth}>Board analysis depth</label>
           <input
             id="set-depth"
             type="number"
@@ -107,10 +110,10 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
         </p>
         <p className="small" style={{ margin: 0 }}>{data.summary}</p>
         <div className="row">
-          <button className="btn primary" type="button" onClick={() => data.exportBackup()}>
+          <button className="btn primary" type="button" onClick={() => data.exportBackup()} data-tip={TIPS.backup}>
             Download backup
           </button>
-          <button className="btn" type="button" onClick={() => fileRef.current?.click()}>
+          <button className="btn" type="button" onClick={() => fileRef.current?.click()} data-tip={TIPS.import}>
             Import backup or desktop files
           </button>
           <input
@@ -130,7 +133,7 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
         </div>
         <div className="row">
           {!confirmClear ? (
-            <button className="btn" type="button" onClick={() => setConfirmClear(true)}>
+            <button className="btn" type="button" onClick={() => setConfirmClear(true)} data-tip={TIPS.clear}>
               Clear my data…
             </button>
           ) : (

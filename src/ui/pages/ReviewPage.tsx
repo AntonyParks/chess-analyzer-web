@@ -4,6 +4,7 @@ import { GameReviewRunner, buildReview } from "../../core/review";
 import { useEngines } from "../engine";
 import { useGame } from "../game";
 import { MoveList } from "./AnalysePage";
+import { TIPS } from "../tips";
 
 const MARKER_CLASS: Record<string, string> = { "??": "marker-bad", "?": "marker-bad", "?!": "marker-warn" };
 
@@ -56,11 +57,12 @@ export function ReviewPage() {
       <section className="panel">
         <div className="row">
           <h2 className="grow">Game review</h2>
-          <label className="small muted" htmlFor="review-depth">
+          <label className="small muted" htmlFor="review-depth" data-tip={TIPS.reviewDepth}>
             Depth
           </label>
           <input
             id="review-depth"
+            data-tip={TIPS.reviewDepth}
             type="number"
             min={6}
             max={20}
@@ -73,6 +75,7 @@ export function ReviewPage() {
             className="btn primary"
             type="button"
             disabled={!main || running || !game.moves.length}
+            data-tip={TIPS.reviewRun}
             onClick={() => {
               setFinished(null);
               if (runner.current?.start()) setProgress([0, game.moves.length + 1]);
@@ -82,7 +85,7 @@ export function ReviewPage() {
             {running ? "Analysing…" : "Analyse game"}
           </button>
           {running && (
-            <button className="btn" type="button" onClick={() => runner.current?.cancel()}>
+            <button className="btn" type="button" onClick={() => runner.current?.cancel()} data-tip={TIPS.reviewStop}>
               Stop
             </button>
           )}
@@ -124,6 +127,7 @@ export function ReviewPage() {
                 className="btn"
                 style={{ textAlign: "left", fontWeight: 400, padding: "6px 10px", height: "auto" }}
                 onClick={() => goto(e.ply - 1)}
+                data-tip={TIPS.reviewEntry}
               >
                 <b className={MARKER_CLASS[e.marker] ?? ""}>{e.label}</b>
                 {e.betterSan && (

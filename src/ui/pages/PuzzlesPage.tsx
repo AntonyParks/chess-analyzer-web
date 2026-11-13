@@ -26,7 +26,9 @@ import { Board, type Arrow } from "../Board";
 import { useData, type DataApi } from "../data";
 import { useEngines, type Engines } from "../engine";
 import type { Settings } from "../settings";
+import { TIPS } from "../tips";
 
+const MARKER_TIPS: Record<string, string> = { "??": TIPS.markerBlunders, "?": TIPS.markerMistakes, "?!": TIPS.markerInaccuracies };
 const MODE_LABELS: Record<string, string> = { unsolved: "Unsolved", failed: "Retry failed", all: "All puzzles" };
 const REPLY_DELAY = 600;
 
@@ -215,6 +217,7 @@ export function PuzzlesPage({
           <div className="row">
             <input
               id="cc-user"
+              data-tip={TIPS.ccUser}
               type="text"
               placeholder="chess.com username"
               value={username}
@@ -222,7 +225,7 @@ export function PuzzlesPage({
               onBlur={() => update({ chesscomUsername: username.trim() })}
               className="grow"
             />
-            <label className="small row" style={{ gap: 4 }}>
+            <label className="small row" style={{ gap: 4 }} data-tip={TIPS.scanDepth}>
               Depth
               <input
                 type="number"
@@ -236,7 +239,7 @@ export function PuzzlesPage({
           </div>
           <div className="chips">
             {TIME_CLASSES.map((tc) => (
-              <label key={tc} className="chip">
+              <label key={tc} className="chip" data-tip={TIPS.timeClass}>
                 <input
                   type="checkbox"
                   checked={settings.puzzleTimeClasses.includes(tc)}
@@ -251,6 +254,7 @@ export function PuzzlesPage({
               className="btn primary"
               type="button"
               disabled={scan.running}
+              data-tip={TIPS.scan}
               onClick={() => {
                 update({ chesscomUsername: username.trim() });
                 void downloadAndScan(data, engines, { ...settings, chesscomUsername: username.trim() });
@@ -262,6 +266,7 @@ export function PuzzlesPage({
               <button
                 className="btn"
                 type="button"
+                data-tip={TIPS.scanStop}
                 onClick={() => {
                   stopRequested = true;
                   scanner?.stop();
@@ -284,7 +289,7 @@ export function PuzzlesPage({
           <h2>Practice</h2>
           <div className="chips">
             {MARKERS.map((m) => (
-              <label key={m} className="chip">
+              <label key={m} className="chip" data-tip={MARKER_TIPS[m]}>
                 <input
                   type="checkbox"
                   checked={settings.puzzleMarkers.includes(m)}
@@ -294,12 +299,13 @@ export function PuzzlesPage({
               </label>
             ))}
           </div>
-          <label className="small" htmlFor="lookahead">
+          <label className="small" htmlFor="lookahead" data-tip={TIPS.lookahead}>
             Lookahead:{" "}
             <b>{look === null ? "any depth" : `${look} move${look === 1 ? "" : "s"} (≈${2 * look} plies)`}</b>
           </label>
           <input
             id="lookahead"
+            data-tip={TIPS.lookahead}
             type="range"
             min={1}
             max={MAX_LOOKAHEAD + 1}
@@ -311,14 +317,14 @@ export function PuzzlesPage({
             dial.
           </p>
           <div className="row">
-            <select value={settings.puzzleMode} onChange={(e) => update({ puzzleMode: e.target.value })} aria-label="Which puzzles">
+            <select value={settings.puzzleMode} onChange={(e) => update({ puzzleMode: e.target.value })} aria-label="Which puzzles" data-tip={TIPS.mode}>
               {Object.entries(MODE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v}
                 </option>
               ))}
             </select>
-            <select value={settings.puzzleOrder} onChange={(e) => update({ puzzleOrder: e.target.value })} aria-label="Order">
+            <select value={settings.puzzleOrder} onChange={(e) => update({ puzzleOrder: e.target.value })} aria-label="Order" data-tip={TIPS.order}>
               {Object.entries(ORDERS).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v}
@@ -328,7 +334,7 @@ export function PuzzlesPage({
             <span className="small muted grow">
               {matching.length} puzzle{matching.length === 1 ? "" : "s"}
             </span>
-            <button className="btn primary" type="button" disabled={!matching.length} onClick={start}>
+            <button className="btn primary" type="button" disabled={!matching.length} onClick={start} data-tip={TIPS.start}>
               Start
             </button>
           </div>
@@ -511,7 +517,7 @@ function PuzzlePlayer({
         </span>
         <span>{TIME_CLASS_LABELS[puzzle.timeClass] ?? puzzle.timeClass}</span>
         {date && <span>{date}</span>}
-        <a href={puzzle.gameUrl} target="_blank" rel="noopener noreferrer">
+        <a href={puzzle.gameUrl} target="_blank" rel="noopener noreferrer" data-tip={TIPS.openGame}>
           Open the game
         </a>
       </div>
@@ -529,16 +535,16 @@ function PuzzlePlayer({
         {feedback.text}
       </p>
       <div className="row">
-        <button className="btn" type="button" onClick={hint} disabled={finished || awaiting}>
+        <button className="btn" type="button" onClick={hint} disabled={finished || awaiting} data-tip={TIPS.hint}>
           Hint
         </button>
-        <button className="btn" type="button" onClick={showSolution} disabled={finished || awaiting}>
+        <button className="btn" type="button" onClick={showSolution} disabled={finished || awaiting} data-tip={TIPS.solution}>
           Show solution
         </button>
-        <button className="btn" type="button" onClick={onRetry}>
+        <button className="btn" type="button" onClick={onRetry} data-tip={TIPS.retry}>
           Retry
         </button>
-        <button className="btn primary" type="button" onClick={onNext}>
+        <button className="btn primary" type="button" onClick={onNext} data-tip={TIPS.nextPuzzle}>
           Next
         </button>
       </div>

@@ -5,6 +5,7 @@ import { cpPov, formatCp } from "../../core/evaluation";
 import { GameState } from "../../core/gameState";
 import { useGame } from "../game";
 import type { Settings } from "../settings";
+import { TIPS } from "../tips";
 
 export function MoveList() {
   const { game, goto } = useGame();
@@ -56,7 +57,7 @@ export function EngineLines({ count = 3 }: { count?: number }) {
     <div className="lines">
       {top.map(([uci, ev]) => (
         <div key={uci} className="row" style={{ flexWrap: "nowrap" }}>
-          <button type="button" className="btn" style={{ minHeight: 26, minWidth: 64 }} onClick={() => play(uci)}>
+          <button type="button" className="btn" style={{ minHeight: 26, minWidth: 64 }} onClick={() => play(uci)} data-tip={TIPS.engineLine}>
             {formatCp(ev.cpWhite)}
           </button>
           <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{sanLine([uci, ...ev.pv.slice(0, 8)], fen)}</span>
@@ -117,15 +118,15 @@ export function AnalysePage({ settings, update }: { settings: Settings; update: 
       <section className="panel">
         <div className="row">
           <h2 className="grow">Moves</h2>
-          <label className="chip">
+          <label className="chip" data-tip={TIPS.heatmap}>
             <input type="checkbox" checked={settings.heatmap} onChange={(e) => update({ heatmap: e.target.checked })} />
             Heatmap
           </label>
-          <label className="chip">
+          <label className="chip" data-tip={TIPS.bestArrow}>
             <input type="checkbox" checked={settings.arrow} onChange={(e) => update({ arrow: e.target.checked })} />
             Best move
           </label>
-          <label className="chip">
+          <label className="chip" data-tip={TIPS.flip}>
             <input type="checkbox" checked={settings.flip} onChange={(e) => update({ flip: e.target.checked })} />
             Flip
           </label>
@@ -135,11 +136,12 @@ export function AnalysePage({ settings, update }: { settings: Settings; update: 
       <section className="panel">
         <div className="row">
           <h2 className="grow">Engine</h2>
-          <label className="small muted" htmlFor="depth">
+          <label className="small muted" htmlFor="depth" data-tip={TIPS.depth}>
             Depth
           </label>
           <input
             id="depth"
+            data-tip={TIPS.depth}
             type="number"
             min={6}
             max={24}
@@ -157,16 +159,17 @@ export function AnalysePage({ settings, update }: { settings: Settings; update: 
         <h2>Load or save</h2>
         <textarea
           id="pgn-input"
+          data-tip={TIPS.pgnInput}
           rows={4}
           placeholder="Paste a PGN or a FEN"
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
         <div className="row">
-          <button className="btn primary" type="button" onClick={() => loadText(text)}>
+          <button className="btn primary" type="button" onClick={() => loadText(text)} data-tip={TIPS.load}>
             Load
           </button>
-          <button className="btn" type="button" onClick={() => fileRef.current?.click()}>
+          <button className="btn" type="button" onClick={() => fileRef.current?.click()} data-tip={TIPS.openFile}>
             Open PGN file
           </button>
           <input
@@ -180,13 +183,13 @@ export function AnalysePage({ settings, update }: { settings: Settings; update: 
               e.target.value = "";
             }}
           />
-          <button className="btn" type="button" onClick={download} disabled={!game.moves.length}>
+          <button className="btn" type="button" onClick={download} disabled={!game.moves.length} data-tip={TIPS.download}>
             Download PGN
           </button>
-          <button className="btn" type="button" onClick={share}>
+          <button className="btn" type="button" onClick={share} data-tip={TIPS.share}>
             Share position
           </button>
-          <button className="btn" type="button" onClick={() => load(new GameState(START_FEN))}>
+          <button className="btn" type="button" onClick={() => load(new GameState(START_FEN))} data-tip={TIPS.newGame}>
             New game
           </button>
         </div>

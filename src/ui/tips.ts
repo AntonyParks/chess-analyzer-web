@@ -1,0 +1,107 @@
+/** Hover descriptions for the controls, in one place so the wording stays consistent. */
+export const TIPS = {
+  // Tabs
+  tab_analyse: "Analyse a position or game with Stockfish: heatmap, best move, engine lines.",
+  tab_explorer: "What Lichess players play from the position on the board, with Stockfish's evaluations.",
+  tab_insights: "Find moves after which opponents usually go wrong, from the position on the board.",
+  tab_review: "Analyse every move of the game and list the inaccuracies, mistakes and blunders.",
+  tab_puzzles: "Puzzles made from the mistakes in your own chess.com games.",
+  tab_repertoire: "Build your opening repertoire and drill it with spaced repetition.",
+  tab_settings: "Lichess login, engine depth, backups and your data.",
+
+  // Board and navigation
+  first: "Go to the start of the game (Home).",
+  prev: "Previous move (Left arrow).",
+  next: "Next move (Right arrow).",
+  last: "Go to the end of the game (End).",
+  heatmap: "Colour each piece's square with one band per legal move, best on top: green is good, red is bad. A gold star marks the piece with the best move.",
+  bestArrow: "Draw an arrow for Stockfish's best move.",
+  flip: "Turn the board around.",
+  depth: "How deep Stockfish searches each position. Deeper is stronger but slower, especially on phones.",
+  engineLine: "Play this move. The line shows what Stockfish expects to follow.",
+  evalGraph: "Winning chances over the game (White above the line). Click to jump to that move.",
+
+  // Load / save
+  pgnInput: "Paste a game (PGN) or a position (FEN).",
+  load: "Load the pasted game or position onto the board.",
+  openFile: "Open a .pgn file from your device.",
+  download: "Save the game on the board as a .pgn file.",
+  share: "Copy a link that opens this position.",
+  newGame: "Clear the board back to the starting position.",
+
+  // Explorer
+  speed: "Include Lichess games played at this time control.",
+  rating: "Include Lichess games where the average rating is in this band.",
+  colMove: "The move. Click a row to play it.",
+  colEval: "Stockfish's evaluation after the move (White's point of view). Fills in as the engine analyses.",
+  colGames: "How many Lichess games continued with this move.",
+  colPlayed: "Share of the games in this position that continued with this move.",
+  colWdl: "Results after the move: White wins, draws, Black wins.",
+  colAvg: "Average rating of the players who chose this move.",
+
+  // Insights
+  insColour: "Which side's moves to look for.",
+  insMinGames: "Games a move needs before it is judged.",
+  insDelta: "The smallest challenge (in points) a move needs to be listed: how far short of their best reply opponents fall, as a 95% lower bound.",
+  insMinPct: "Share of its position's games a move needs before it is examined (as your move, or as a candidate best reply).",
+  insTopN: "How many of the opponent's most popular replies to follow (0 = all).",
+  insPositions: "How many positions the search may fetch, one per second. It searches breadth-first, so this budget also decides how deep it gets.",
+  insRun: "Walk the Lichess tree from the position on the board and list challenging moves.",
+  insStop: "Stop the search; moves found so far stay listed.",
+  insLine: "The line from the board's position to the move. Click a row to load it.",
+  insChallenge: "How far short of their best reply opponents fall on average (95% lower bound): the higher, the more often they go wrong.",
+  insScore: "Wins plus half the draws for your colour, over the games after the move.",
+  insBestReply: "The opponent's most reliable answer, how often it is played, and your score after it.",
+  insPlayed: "How often the move is chosen in its position.",
+
+  // Review
+  reviewDepth: "How deep Stockfish analyses each position of the game. Higher is more accurate but slower.",
+  reviewRun: "Analyse every position of the game, then list the flagged moves.",
+  reviewStop: "Stop the analysis; positions already analysed are kept.",
+  reviewEntry: "Jump to the position before this move.",
+
+  // Puzzles
+  ccUser: "Your chess.com username. Your public games are downloaded from chess.com.",
+  scanDepth: "How deep Stockfish checks each of your moves when scanning. Games scanned at this depth or deeper are not scanned again.",
+  timeClass: "Download and scan games played at this time control.",
+  scan: "Download your games (only new ones after the first time) and scan the unscanned ones for your mistakes.",
+  scanStop: "Stop; the games downloaded and puzzles found so far are kept.",
+  marker: "Include puzzles from moves of this severity.",
+  markerBlunders: "Blunders: moves that gave up at least 15 points of winning chances.",
+  markerMistakes: "Mistakes: moves that gave up at least 10 points of winning chances.",
+  markerInaccuracies: "Inaccuracies: moves that gave up at least 5 points of winning chances.",
+  lookahead: "Difficulty: only puzzles whose punishment shows within this many moves. All the way right means any depth.",
+  mode: "Unsolved: puzzles you have not solved yet. Retry failed: those you missed last time. All puzzles: everything.",
+  order: "Easiest first sorts by how far ahead you must look, then line length, accepted answers and how big the mistake was.",
+  start: "Start a run through the puzzles that match these settings.",
+  hint: "Highlight the piece to move. Counts as a miss.",
+  solution: "Play the solution on the board. Counts as a miss.",
+  retry: "Replay this puzzle for practice. Not recorded.",
+  nextPuzzle: "Go to the next puzzle.",
+  openGame: "Open the game on chess.com.",
+
+  // Repertoire
+  repColour: "Which repertoire to build and train: White or Black.",
+  repCoverage: "A reply you have not prepared is flagged as a gap when it comes up in at least 1 game in this many.",
+  repRating: "Lichess games in this rating band count towards the game counts and gaps.",
+  repAdd: "Add every move from the start to the position on the board to your repertoire.",
+  repRemove: "Remove the move that led to this position, and whatever only it led to.",
+  repGap: "Jump to the likeliest position your repertoire does not answer yet.",
+  repTrain: "Drill the moves that are due today (spaced repetition).",
+  repPractise: "Run through every move in this repertoire, due or not.",
+  repCheck: "Go through your downloaded chess.com games and list where each first left this repertoire.",
+  repMark: "★ your move · ✓ a reply you have prepared · ↪ joins one of your lines by another move order · ⚠ an unprepared reply common enough to cover",
+  repTree: "Your lines. Click a move to load it on the board.",
+  trainHint: "Highlight the piece to move. Counts as a miss.",
+  trainShow: "Show the move with an arrow. Counts as a miss.",
+  trainSkip: "Skip to the next line.",
+  trainStop: "End the session and go back to building.",
+
+  // Settings
+  login: "Log in on lichess.org. This page gets a token kept only in this browser.",
+  token: "Paste a Lichess personal API token instead of logging in.",
+  logout: "Log out of Lichess in this browser.",
+  backup: "Download your games, puzzles, results and repertoire as one file.",
+  import: "Restore a backup, or import puzzles.json, repertoire.json or chesscom_games.json from the desktop app.",
+  clear: "Delete your games, puzzles, results and repertoire from this browser.",
+} as const;

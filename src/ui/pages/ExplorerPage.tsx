@@ -3,6 +3,7 @@ import { RATING_CHOICES, SPEEDS, SPEED_LABELS, percentages } from "../../data/li
 import { useGame } from "../game";
 import { SortTable, explorerColumns, useExplorer } from "../lichess";
 import type { Settings } from "../settings";
+import { TIPS } from "../tips";
 
 export function ExplorerPage({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {
   const { game, play } = useGame();
@@ -18,7 +19,7 @@ export function ExplorerPage({ settings, update }: { settings: Settings; update:
         <h2>Opening explorer</h2>
         <div className="chips">
           {SPEEDS.map((s) => (
-            <label key={s} className="chip">
+            <label key={s} className="chip" data-tip={TIPS.speed}>
               <input
                 type="checkbox"
                 checked={settings.explorerSpeeds.includes(s)}
@@ -30,7 +31,7 @@ export function ExplorerPage({ settings, update }: { settings: Settings; update:
         </div>
         <div className="chips">
           {RATING_CHOICES.map((r) => (
-            <label key={r} className="chip">
+            <label key={r} className="chip" data-tip={TIPS.rating}>
               <input
                 type="checkbox"
                 checked={settings.explorerRatings.includes(r)}

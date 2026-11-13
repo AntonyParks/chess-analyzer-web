@@ -8,6 +8,7 @@ import { InsightsWorker, type InsightsSummary, type NotableMove, playPct, positi
 import { useGame } from "../game";
 import { SortTable, useLichess } from "../lichess";
 import type { Settings } from "../settings";
+import { TIPS } from "../tips";
 
 export function InsightsPage({ settings }: { settings: Settings }) {
   const client = useLichess();
@@ -65,8 +66,8 @@ export function InsightsPage({ settings }: { settings: Settings }) {
     load(state);
   };
 
-  const num = (label: string, value: number, set: (v: number) => void, min: number, max: number, step = 1) => (
-    <label className="small row" style={{ gap: 4 }}>
+  const num = (label: string, value: number, set: (v: number) => void, min: number, max: number, step = 1, tip = "") => (
+    <label className="small row" style={{ gap: 4 }} data-tip={tip || undefined}>
       {label}
       <input type="number" value={value} min={min} max={max} step={step} onChange={(e) => set(Number(e.target.value) || 0)} style={{ width: 80 }} />
     </label>
@@ -90,22 +91,22 @@ export function InsightsPage({ settings }: { settings: Settings }) {
           reply would give them. Uses the Explorer tab's speed and rating filters.
         </p>
         <div className="row">
-          <select value={color} onChange={(e) => setColor(e.target.value as "w" | "b")} aria-label="Colour">
+          <select value={color} onChange={(e) => setColor(e.target.value as "w" | "b")} aria-label="Colour" data-tip={TIPS.insColour}>
             <option value="w">Moves for White</option>
             <option value="b">Moves for Black</option>
           </select>
-          {num("Min games", minGames, setMinGames, 1, 10_000_000, 100)}
-          {num("Min challenge", delta, setDelta, 0, 50, 0.5)}
-          {num("Min %", minPct, setMinPct, 0, 100)}
-          {num("Replies", topN, setTopN, 0, 20)}
-          {num("Positions", maxPositions, setMaxPositions, 10, 5000, 50)}
+          {num("Min games", minGames, setMinGames, 1, 10_000_000, 100, TIPS.insMinGames)}
+          {num("Min challenge", delta, setDelta, 0, 50, 0.5, TIPS.insDelta)}
+          {num("Min %", minPct, setMinPct, 0, 100, 1, TIPS.insMinPct)}
+          {num("Replies", topN, setTopN, 0, 20, 1, TIPS.insTopN)}
+          {num("Positions", maxPositions, setMaxPositions, 10, 5000, 50, TIPS.insPositions)}
         </div>
         <div className="row">
-          <button className="btn primary" type="button" onClick={start} disabled={running}>
+          <button className="btn primary" type="button" onClick={start} disabled={running} data-tip={TIPS.insRun}>
             {running ? "Searching…" : "Find challenging moves"}
           </button>
           {running && (
-            <button className="btn" type="button" onClick={() => worker.stop()}>
+            <button className="btn" type="button" onClick={() => worker.stop()} data-tip={TIPS.insStop}>
               Stop
             </button>
           )}
@@ -125,12 +126,12 @@ export function InsightsPage({ settings }: { settings: Settings }) {
             onPick={show}
             initialSort={1}
             columns={[
-              { head: "Line", cell: (m) => sanLine([...m.line, m.move], fenBefore(m)), sort: (m) => m.line.length },
-              { head: "Challenge", num: true, title: "How much worse opponents score than their best reply would give", cell: (m) => `${m.challengePp.toFixed(1)} pp`, sort: (m) => m.challengePp },
-              { head: "Score", num: true, cell: (m) => `${m.scorePct.toFixed(1)}%`, sort: (m) => m.scorePct },
-              { head: "Best reply", cell: (m) => `${m.bestReplySan} (${m.bestReplyShare.toFixed(0)}%, ${m.bestReplyPct.toFixed(1)}%)` },
-              { head: "Played", num: true, cell: (m) => `${playPct(m).toFixed(1)}%`, sort: (m) => playPct(m) },
-              { head: "Games", num: true, cell: (m) => m.games.toLocaleString(), sort: (m) => m.games },
+              { head: "Line", title: TIPS.insLine, cell: (m) => sanLine([...m.line, m.move], fenBefore(m)), sort: (m) => m.line.length },
+              { head: "Challenge", num: true, title: TIPS.insChallenge, cell: (m) => `${m.challengePp.toFixed(1)} pp`, sort: (m) => m.challengePp },
+              { head: "Score", num: true, title: TIPS.insScore, cell: (m) => `${m.scorePct.toFixed(1)}%`, sort: (m) => m.scorePct },
+              { head: "Best reply", title: TIPS.insBestReply, cell: (m) => `${m.bestReplySan} (${m.bestReplyShare.toFixed(0)}%, ${m.bestReplyPct.toFixed(1)}%)` },
+              { head: "Played", num: true, title: TIPS.insPlayed, cell: (m) => `${playPct(m).toFixed(1)}%`, sort: (m) => playPct(m) },
+              { head: "Games", num: true, title: TIPS.colGames, cell: (m) => m.games.toLocaleString(), sort: (m) => m.games },
             ]}
           />
           <p className="small muted" style={{ margin: 0 }}>Click a row to load the line on the board.</p>

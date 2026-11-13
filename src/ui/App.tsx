@@ -16,6 +16,8 @@ import { RepertoirePage } from "./pages/RepertoirePage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { SettingsPage, redirectUri } from "./pages/SettingsPage";
 import { useSettings, type Settings } from "./settings";
+import { TIPS } from "./tips";
+import { Tooltip } from "./Tooltip";
 
 export type TabId = "analyse" | "explorer" | "insights" | "review" | "puzzles" | "repertoire" | "settings";
 
@@ -76,6 +78,7 @@ export function App() {
                   role="tab"
                   className="tab"
                   aria-selected={tab === t.id}
+                  data-tip={TIPS[`tab_${t.id}` as keyof typeof TIPS]}
                   onClick={() => (location.hash = t.id)}
                 >
                   {t.label}
@@ -86,6 +89,7 @@ export function App() {
           </header>
           <InitialPosition />
           {loginMessage && <p className="small">{loginMessage}</p>}
+          <Tooltip />
           <main className="page">
             <Page tab={tab} settings={settings} update={update} setBoardBusy={setBoardBusy} />
           </main>
