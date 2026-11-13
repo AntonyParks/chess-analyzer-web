@@ -92,6 +92,7 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
           onMove={(uci) => play(uci)}
           onSelect={setSelected}
           bands={bands}
+          star={settings.heatmap && analysis ? bestUci(analysis.evals, turn)?.slice(0, 2) ?? null : null}
           dotColors={dotColors}
           labels={labels}
           arrows={arrows}

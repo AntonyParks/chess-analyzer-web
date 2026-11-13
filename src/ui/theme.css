@@ -69,6 +69,8 @@ a { color: var(--accent); }
 .sq > .tint, .sq > .mark { position: absolute; inset: 0; pointer-events: none; }
 .sq > .bands { position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; }
 .sq > .bands > div { flex: 1; }
+.sq > .star { position: absolute; top: 3%; right: 3%; width: 27%; height: 27%; z-index: 5; pointer-events: none; overflow: visible; }
+.sq > .star polygon { fill: #ffd700; stroke: #5a4500; stroke-width: 0.12; stroke-linejoin: round; }
 .sq > .dot-c { position: absolute; left: 34%; top: 34%; width: 32%; height: 32%; border-radius: 50%; opacity: .9; z-index: 3; pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
 .sq.last > .mark { background: var(--sq-last); }
 .sq.sel > .mark { background: var(--sq-sel); }

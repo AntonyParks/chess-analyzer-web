@@ -78,7 +78,7 @@ describe("evaluation (mirrors tests/test_evaluation.py)", () => {
   ])("classify(%f) = %s", (drop, symbol) => expect(ev.classify(drop)).toBe(symbol));
 
   it("rank colours match the desktop ramp", () => {
-    expect(ev.rankColor(1)).toBe("#FFD700");
+    expect(ev.rankColor(1)).toBe("#28C828");
     expect(ev.rankColor(0)).toBe("#D22828");
   });
 });

@@ -114,9 +114,12 @@ export function classify(drop: number): "??" | "?" | "?!" | "" {
   return "";
 }
 
-/** Colour for a move rank (0 worst … 1 best): the desktop app's red→green ramp, gold for best. */
+/**
+ * Colour for a move rank (0 worst … 1 best): the desktop app's red→green ramp, the best move
+ * being the strongest green. (Gold read as a warning; the board marks the best move with a
+ * gold star instead.)
+ */
 export function rankColor(t: number): string {
-  if (t >= 1) return "#FFD700";
   const c = Math.max(0, Math.min(1, t));
   const r = Math.trunc(210 * (1 - c) + 40 * c);
   const g = Math.trunc(40 * (1 - c) + 200 * c);

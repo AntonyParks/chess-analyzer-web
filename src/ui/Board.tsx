@@ -28,6 +28,8 @@ export interface BoardProps {
   tints?: Record<string, string>;
   /** square -> one colour per legal move of its piece, drawn as stacked bands (the heatmap). */
   bands?: Record<string, string[]>;
+  /** A small gold star in the top-right corner of this square (the piece with the best move). */
+  star?: string | null;
   /** target square -> colour of the move dot when a piece is selected (rank colours). */
   dotColors?: Record<string, string>;
   /** square -> small label (e.g. the eval of moving the selected piece there). */
@@ -213,6 +215,11 @@ export function Board(props: BoardProps) {
             </div>
           )}
           {dot && <div className="dot-c" style={{ background: dot }} />}
+          {props.star === name && (
+            <svg className="star" viewBox="-1 -1 2 2" aria-label="Best move">
+              <polygon points={STAR_POINTS} />
+            </svg>
+          )}
           <div className="mark" />
           {col === 0 && <span className="coord r">{rank + 1}</span>}
           {row === 7 && <span className="coord f">{FILES[file]}</span>}
@@ -313,6 +320,12 @@ function Arrows({ arrows, flipped }: { arrows: Arrow[]; flipped: boolean }) {
     </svg>
   );
 }
+
+const STAR_POINTS = Array.from({ length: 10 }, (_, i) => {
+  const r = i % 2 === 0 ? 0.92 : 0.4;
+  const a = -Math.PI / 2 + (i * Math.PI) / 5;
+  return `${(r * Math.cos(a)).toFixed(3)},${(r * Math.sin(a)).toFixed(3)}`;
+}).join(" ");
 
 /** 64 squares (a1 = 0) of piece letters, from a FEN. */
 export function parseBoard(fen: string): (string | null)[] {
