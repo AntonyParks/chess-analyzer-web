@@ -72,7 +72,7 @@ export class EngineScheduler {
 
   constructor(
     engine: UciEngine,
-    private readonly options: { hashMb?: number; threads?: number } = {},
+    options: { hashMb?: number; threads?: number } = {},
   ) {
     this.session = new UciSession(engine);
     void this.session.setOption("Hash", options.hashMb ?? 32);
