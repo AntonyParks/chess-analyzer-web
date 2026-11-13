@@ -25,8 +25,8 @@ export interface GameReviewRunnerOptions {
  * Evaluates every ply of the loaded game with BATCH requests; never moves the board.
  *
  * The user can keep browsing while it runs. Any change to the move list cancels the run.
- * Each ply is one per-move request: every legal move of that position is searched after
- * being played, so ``PlyAnalysis.evals`` holds a score for each legal move.
+ * Each ply is one MultiPV request scoring every legal move of that position, so
+ * ``PlyAnalysis.evals`` holds a score for each legal move.
  */
 export class GameReviewRunner {
   private readonly opts: GameReviewRunnerOptions;
@@ -74,6 +74,9 @@ export class GameReviewRunner {
         fen,
         moves: legal,
         depth: this.depth,
+        // One MultiPV search per position (every legal move scored at once): a per-move
+        // search of each position is too slow on single-threaded WASM Stockfish.
+        multipv: true,
         tag: ply,
         onDone: (r) => this.onDone(r),
       });

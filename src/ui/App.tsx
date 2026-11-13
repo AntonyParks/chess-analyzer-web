@@ -5,7 +5,14 @@ import { GameState } from "../core/gameState";
 import { AnalysisBoard } from "./AnalysisBoard";
 import { EngineProvider, useEngines } from "./engine";
 import { GameProvider, useGame } from "./game";
+import { finishLogin, isLoginRedirect } from "../data/lichessAuth";
+import { DataProvider } from "./data";
+import { LichessProvider } from "./lichess";
 import { AnalysePage } from "./pages/AnalysePage";
+import { ExplorerPage } from "./pages/ExplorerPage";
+import { InsightsPage } from "./pages/InsightsPage";
+import { ReviewPage } from "./pages/ReviewPage";
+import { SettingsPage, redirectUri } from "./pages/SettingsPage";
 import { useSettings, type Settings } from "./settings";
 
 export type TabId = "analyse" | "explorer" | "insights" | "review" | "puzzles" | "repertoire" | "settings";
@@ -35,9 +42,26 @@ export function App() {
   }, []);
   // Pages that run their own board (puzzles, repertoire training) pause the board analysis.
   const [boardBusy, setBoardBusy] = useState(false);
+  const [loginMessage, setLoginMessage] = useState("");
+
+  // Coming back from the Lichess login page: swap the code for a token, then tidy the URL.
+  useEffect(() => {
+    if (!isLoginRedirect(location.href)) return;
+    const url = location.href;
+    history.replaceState(null, "", `${location.pathname}#settings`);
+    setTab("settings");
+    finishLogin(url, redirectUri())
+      .then((token) => {
+        update({ lichessToken: token });
+        setLoginMessage("Logged in to Lichess.");
+      })
+      .catch((err: Error) => setLoginMessage(`Lichess login failed: ${err.message}`));
+  }, [update]);
 
   return (
     <EngineProvider>
+      <DataProvider>
+      <LichessProvider token={settings.lichessToken}>
       <GameProvider depth={settings.depth} enabled={!boardBusy}>
         <div className="app">
           <header className="topbar">
@@ -59,6 +83,7 @@ export function App() {
             <EngineStatus />
           </header>
           <InitialPosition />
+          {loginMessage && <p className="small">{loginMessage}</p>}
           <Page tab={tab} settings={settings} update={update} setBoardBusy={setBoardBusy} />
           <footer className="site">
             Runs entirely in your browser: Stockfish 17.1 (WebAssembly, GPL-3) analyses on your device, and your
@@ -66,6 +91,8 @@ export function App() {
           </footer>
         </div>
       </GameProvider>
+      </LichessProvider>
+      </DataProvider>
     </EngineProvider>
   );
 }
@@ -106,7 +133,21 @@ function Page({
   update: (p: Partial<Settings>) => void;
   setBoardBusy: (busy: boolean) => void;
 }) {
+  const withBoard = (panel: React.ReactNode) => (
+    <div className="layout">
+      <AnalysisBoard settings={settings} />
+      {panel}
+    </div>
+  );
   switch (tab) {
+    case "explorer":
+      return withBoard(<ExplorerPage settings={settings} update={update} />);
+    case "insights":
+      return withBoard(<InsightsPage settings={settings} />);
+    case "review":
+      return withBoard(<ReviewPage />);
+    case "settings":
+      return <SettingsPage settings={settings} update={update} />;
     default:
       return (
         <div className="layout">
