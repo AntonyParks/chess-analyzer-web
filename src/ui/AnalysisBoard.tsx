@@ -81,7 +81,7 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
   const orientation = settings.flip ? "b" : "w";
 
   return (
-    <div className="col">
+    <div className="col board-col" style={{ "--extras": "118px" } as React.CSSProperties}>
       <div className="board-row">
         <EvalBar cp={cp} flipped={orientation === "b"} />
         <Board

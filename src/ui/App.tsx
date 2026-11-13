@@ -86,7 +86,9 @@ export function App() {
           </header>
           <InitialPosition />
           {loginMessage && <p className="small">{loginMessage}</p>}
-          <Page tab={tab} settings={settings} update={update} setBoardBusy={setBoardBusy} />
+          <main className="page">
+            <Page tab={tab} settings={settings} update={update} setBoardBusy={setBoardBusy} />
+          </main>
         </div>
       </GameProvider>
       </LichessProvider>

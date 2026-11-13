@@ -24,8 +24,9 @@
   --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
   /* The board fills the window's height (minus the header and the move buttons below it), and
      the board column never takes more than about two thirds of the width. */
-  --board-max: calc(100vh - 130px);
-  --board-col: min(calc(var(--board-max) + 34px), 64vw);
+  --app-h: 100vh;
+  --board-max: calc(var(--app-h) - 190px); /* fallback where container units are missing */
+  --board-col: min(calc(var(--app-h) - 150px), 64vw);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -51,8 +52,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }
 [hidden] { display: none !important; }
 
-@supports (height: 100dvh) { :root { --board-max: calc(100dvh - 130px); } }
-.app { max-width: 2400px; margin: 0 auto; padding: 10px max(12px, env(safe-area-inset-right)) 32px max(12px, env(safe-area-inset-left)); }
+@supports (height: 100dvh) { :root { --app-h: 100dvh; } }
+/* The app is exactly one window tall: the page itself never scrolls; long panels scroll inside
+   their own column. */
+.app {
+  max-width: 2400px; margin: 0 auto; height: var(--app-h);
+  display: flex; flex-direction: column;
+  padding: 10px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
+}
+.app > .topbar { flex: none; }
+.page { flex: 1; min-height: 0; }
+.page > .layout { height: 100%; }
+.page > .col { height: 100%; overflow-y: auto; align-content: start; }
 .topbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
 .brand { font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; }
 .tabs { display: flex; gap: 2px; flex-wrap: wrap; }
@@ -61,7 +72,20 @@ a { color: var(--accent); }
 .engine-pill { margin-left: auto; font-size: 12px; color: var(--muted); }
 
 .layout { display: grid; gap: 14px; }
-@media (min-width: 960px) { .layout { grid-template-columns: minmax(0, var(--board-col)) minmax(340px, 1fr); align-items: start; } }
+@media (min-width: 960px) {
+  .layout { grid-template-columns: minmax(0, var(--board-col)) minmax(340px, 1fr); grid-template-rows: minmax(0, 1fr); }
+  /* The board column is a size container: the board is as large as its height allows, after
+     the column's other contents (--extras: move buttons, eval graph, feedback). */
+  .board-col { height: 100%; container-type: size; align-content: start; overflow: hidden; }
+  .board-col .board-frame { max-width: max(200px, min(100cqw, calc(100cqh - var(--extras, 0px)))); }
+  .layout > .col:not(.board-col) { height: 100%; overflow-y: auto; align-content: start; padding-right: 4px; }
+}
+@media (max-width: 959.98px) {
+  /* Phones and narrow windows: the board on top, the panels below scroll on their own. */
+  .layout { grid-template-rows: auto minmax(0, 1fr); }
+  .layout > .col:not(.board-col) { overflow-y: auto; min-height: 0; align-content: start; }
+  .board-col .board-frame { max-width: max(220px, calc(var(--app-h) - 330px)); }
+}
 .col { display: grid; gap: 10px; min-width: 0; }
 
 .board-row { display: flex; gap: 6px; align-items: stretch; }
@@ -101,7 +125,7 @@ a { color: var(--accent); }
 .evalbar { width: clamp(16px, 2.2vw, 30px); flex: none; border-radius: 3px; overflow: hidden; position: relative; background: var(--bar-black); }
 .evalbar .white { position: absolute; left: 0; right: 0; bottom: 0; background: var(--bar-white); transition: height 300ms ease; }
 .evalbar .txt { position: absolute; left: 0; right: 0; font: 700 clamp(8px, 0.75vw, 12px)/1 var(--mono); text-align: center; padding: 3px 0; }
-.evalgraph { width: 100%; height: clamp(56px, 9vh, 120px); display: block; border-radius: 4px; background: var(--surface-2); cursor: pointer; }
+.evalgraph { width: 100%; height: 56px; display: block; border-radius: 4px; background: var(--surface-2); cursor: pointer; }
 
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 10px; min-width: 0; }
 .panel h2 { margin: 0; font-size: 1rem; }
@@ -133,7 +157,7 @@ table.data tbody tr { cursor: pointer; }
 table.data tbody tr:hover { background: var(--surface-2); }
 table.data tr.selected { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent); }
 
-.moves { display: grid; grid-template-columns: 3em 1fr 1fr; gap: 1px 4px; font-size: 13px; max-height: max(220px, calc(100vh - 560px)); overflow-y: auto; }
+.moves { display: grid; grid-template-columns: 3em 1fr 1fr; gap: 1px 4px; font-size: 13px; max-height: max(160px, calc(var(--app-h) - 560px)); overflow-y: auto; }
 .moves .n { color: var(--muted); text-align: right; padding-right: 4px; }
 .moves button { text-align: left; border: 0; background: transparent; padding: 2px 5px; border-radius: 4px; cursor: pointer; }
 .moves button.cur { background: var(--accent); color: var(--accent-ink); }

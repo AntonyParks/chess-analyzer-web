@@ -3,6 +3,7 @@
  * mistakes in the background, and replay each as a puzzle (port of ui/puzzles_panel.py).
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { PIECE_NAMES, after, sanLine, sanOf } from "../../core/chess";
 import { explainMove } from "../../core/moveExplain";
 import { PuzzleScanner, estimateSeconds, formatDuration } from "../../core/puzzleScan";
@@ -122,6 +123,7 @@ export function PuzzlesPage({
   const [pos, setPos] = useState(-1);
   const [current, setCurrent] = useState<{ puzzle: Puzzle; record: boolean; key: number } | null>(null);
   const [stale, setStale] = useState(false);
+  const [infoEl, setInfoEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setBoardBusy(true); // the analysis board is not shown here: no engine work for it
@@ -179,10 +181,11 @@ export function PuzzlesPage({
 
   return (
     <div className="layout">
-      <div className="col">
+      <div className="col board-col" style={{ "--extras": "128px" } as React.CSSProperties}>
         {current ? (
           <PuzzlePlayer
             key={current.key}
+            infoTarget={infoEl}
             puzzle={current.puzzle}
             record={current.record}
             lookahead={look}
@@ -206,6 +209,7 @@ export function PuzzlesPage({
         )}
       </div>
       <div className="col">
+        <div ref={setInfoEl} style={{ display: "contents" }} />
         <section className="panel">
           <h2>Your games</h2>
           <div className="row">
@@ -337,6 +341,7 @@ export function PuzzlesPage({
 // ── One puzzle ───────────────────────────────────────────────────────────────
 
 function PuzzlePlayer({
+  infoTarget,
   puzzle,
   record,
   lookahead,
@@ -345,6 +350,8 @@ function PuzzlePlayer({
   onNext,
   onRetry,
 }: {
+  /** Where the puzzle's text goes (the right column), so the board can fill the left one. */
+  infoTarget: HTMLElement | null;
   puzzle: Puzzle;
   record: boolean;
   lookahead: number | null;
@@ -535,6 +542,7 @@ function PuzzlePlayer({
           Next
         </button>
       </div>
+      {infoTarget && createPortal(
       <section className="panel">
         <p style={{ margin: 0 }}>
           You played <b>{puzzleLabel(puzzle)}</b> here. Find a better move ({side} to move).
@@ -546,7 +554,9 @@ function PuzzlePlayer({
         </p>
         {explain && <p className="small" style={{ margin: 0 }}>{explain}</p>}
         {line && <p className="small" style={{ margin: 0, fontFamily: "var(--mono)" }}>{line}</p>}
-      </section>
+      </section>,
+      infoTarget,
+      )}
     </>
   );
 }

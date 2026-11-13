@@ -615,7 +615,7 @@ function Trainer({
   const orientation = rep.userToMove(ROOT_EPD) ? "w" : "b";
   return (
     <div className="layout">
-      <div className="col">
+      <div className="col board-col" style={{ "--extras": "0px" } as React.CSSProperties}>
         <Board
           fen={fen}
           orientation={orientation}
