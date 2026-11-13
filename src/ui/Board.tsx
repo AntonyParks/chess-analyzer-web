@@ -148,7 +148,11 @@ export function Board(props: BoardProps) {
     if (canMove(sq) && targetsOf(sq).length) {
       select(sq);
       dragRef.current = { from: sq, id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
-      boardRef.current!.setPointerCapture(e.pointerId);
+      try {
+        boardRef.current!.setPointerCapture(e.pointerId);
+      } catch {
+        /* not a live pointer (synthetic event): dragging just won't follow outside the board */
+      }
     } else {
       select(null);
     }

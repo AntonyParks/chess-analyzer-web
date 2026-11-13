@@ -11,6 +11,7 @@ import { LichessProvider } from "./lichess";
 import { AnalysePage } from "./pages/AnalysePage";
 import { ExplorerPage } from "./pages/ExplorerPage";
 import { InsightsPage } from "./pages/InsightsPage";
+import { RepertoirePage } from "./pages/RepertoirePage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { SettingsPage, redirectUri } from "./pages/SettingsPage";
 import { useSettings, type Settings } from "./settings";
@@ -127,6 +128,7 @@ function Page({
   tab,
   settings,
   update,
+  setBoardBusy,
 }: {
   tab: TabId;
   settings: Settings;
@@ -146,6 +148,8 @@ function Page({
       return withBoard(<InsightsPage settings={settings} />);
     case "review":
       return withBoard(<ReviewPage />);
+    case "repertoire":
+      return <RepertoirePage settings={settings} update={update} setBoardBusy={setBoardBusy} withBoard={withBoard} />;
     case "settings":
       return <SettingsPage settings={settings} update={update} />;
     default:
