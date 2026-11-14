@@ -3,12 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { GameReviewRunner, buildReview } from "../../core/review";
 import { useEngines } from "../engine";
 import { useGame } from "../game";
+import type { Settings } from "../settings";
 import { MoveList } from "./AnalysePage";
+import { GameList } from "./GameList";
 import { TIPS } from "../tips";
 
 const MARKER_CLASS: Record<string, string> = { "??": "marker-bad", "?": "marker-bad", "?!": "marker-warn" };
 
-export function ReviewPage() {
+export function ReviewPage({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {
   const { main } = useEngines();
   const { game, goto, touch, tick } = useGame();
   const [depth, setDepth] = useState(12);
@@ -90,7 +92,7 @@ export function ReviewPage() {
             </button>
           )}
         </div>
-        {!game.moves.length && <p className="muted small">Load or play a game on the Analyse tab first.</p>}
+        {!game.moves.length && <p className="muted small">Pick one of your games below, or load or play a game on the Analyse tab.</p>}
         {running && progress && (
           <p className="small muted" style={{ margin: 0 }}>
             Analysing position {progress[0]} of {progress[1]}. You can keep browsing the game meanwhile.
@@ -147,6 +149,7 @@ export function ReviewPage() {
         <h2>Moves</h2>
         <MoveList />
       </section>
+      <GameList settings={settings} update={update} />
     </div>
   );
 }

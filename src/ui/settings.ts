@@ -10,6 +10,7 @@ export interface Settings {
   explorerSpeeds: string[];
   explorerRatings: number[];
   chesscomUsername: string;
+  lichessUsername: string;
   puzzleTimeClasses: string[];
   puzzleDepth: number;
   puzzleMarkers: string[];
@@ -38,6 +39,7 @@ export const DEFAULTS: Settings = {
   explorerSpeeds: ["bullet", "blitz", "rapid"],
   explorerRatings: [1200, 1400, 1600, 1800],
   chesscomUsername: "",
+  lichessUsername: "",
   puzzleTimeClasses: ["bullet", "blitz", "rapid", "daily"],
   puzzleDepth: 10,
   puzzleMarkers: ["??", "?", "?!"],

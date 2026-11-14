@@ -150,7 +150,7 @@ function Page({
     case "insights":
       return withBoard(<InsightsPage settings={settings} />);
     case "review":
-      return withBoard(<ReviewPage />);
+      return withBoard(<ReviewPage settings={settings} update={update} />);
     case "puzzles":
       return <PuzzlesPage settings={settings} update={update} setBoardBusy={setBoardBusy} />;
     case "repertoire":

@@ -24,6 +24,7 @@ import { Kind } from "../../engine/scheduler";
 import { useData } from "../data";
 import { useEngines } from "../engine";
 import { useCarryBoard, useGame } from "../game";
+import { lichessKey, playerName } from "../../data/lichessGames";
 import { Sunburst } from "../Sunburst";
 import { SortTable, explorerColumns, useExplorer, useLichess, useSteady, type Column } from "../lichess";
 import type { Settings } from "../settings";
@@ -364,20 +365,23 @@ function Builder({
 
   const checkGames = () => {
     // The Puzzles tab's username, or else whoever's games are in the library (e.g. imported in Settings).
+    // Your chess.com and Lichess games; failing those, everyone in the library (e.g. an import).
     const named = settings.chesscomUsername.trim();
-    const user = named && data.library.hasUser(named) ? named : data.library.usernames()[0];
-    if (!user) {
+    const lichessName = settings.lichessUsername.trim();
+    let keys = [named, lichessName && lichessKey(lichessName)].filter((k): k is string => !!k && data.library.hasUser(k));
+    if (!keys.length) keys = data.library.usernames();
+    if (!keys.length) {
       setDeviations(null);
-      return setCheckNote({ text: "No games yet: download your chess.com games on the Puzzles tab, or import them in Settings.", bad: true });
+      return setCheckNote({ text: "No games yet: download your games on the Review tab, or import them in Settings.", bad: true });
     }
-    if (!named) update({ chesscomUsername: user });
+    const user = keys.map(playerName).join(" / ");
     if (!rep.nodes.size) {
       setDeviations(null);
       return setCheckNote({ text: "Add some lines first.", bad: true });
     }
     const counts = new Map<string, { dev: Deviation; count: number; path: string[] }>();
     let checked = 0;
-    for (const g of data.library.games(user)) {
+    for (const g of keys.flatMap((k) => data.library.games(k))) {
       if (g.userColor !== color(rep)) continue;
       const c = new Chess();
       try {

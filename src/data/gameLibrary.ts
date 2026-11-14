@@ -9,6 +9,7 @@
  * ``toJSON()`` has the same shape as the desktop's chesscom_games.json, so files move both ways.
  */
 import { type ChessComClient, type ChessComGame, type RawGame, parseGame } from "./chesscom";
+import { playerName } from "./lichessGames";
 
 export const LIBRARY_VERSION = 1;
 const KEEP_SIDE = ["username", "rating", "result"];
@@ -134,7 +135,7 @@ export class GameLibrary {
     const found: ChessComGame[] = [];
     for (const entry of Object.values(this.user(username).archives ?? {})) {
       for (const raw of entry?.games ?? []) {
-        const game = parseGame(raw, username);
+        const game = parseGame(raw, playerName(userKey(username)));
         if (game !== null && (wanted === null || wanted.has(game.timeClass))) found.push(game);
       }
     }
@@ -153,6 +154,14 @@ export class GameLibrary {
     return Object.keys(this.users)
       .filter((k) => this.hasUser(k))
       .sort((a, b) => count(this.users[b]) - count(this.users[a]));
+  }
+
+  /** End time (Unix seconds) of the user's newest stored game; 0 if none. */
+  newestEnd(username: string): number {
+    let best = 0;
+    for (const entry of Object.values(this.user(username).archives ?? {}))
+      for (const raw of entry?.games ?? []) best = Math.max(best, Math.trunc(Number(raw.end_time) || 0));
+    return best;
   }
 
   hasUser(username: string): boolean {
@@ -176,6 +185,26 @@ export class GameLibrary {
     if (update.complete) user.refreshed = Math.floor(now.getTime() / 1000);
     let fresh = 0;
     for (const u of after) if (!before.has(u)) fresh++;
+    return fresh;
+  }
+
+  /**
+   * Merge games into one archive of the user (by URL; Lichess downloads use this) and mark the
+   * refresh. Returns how many games were new.
+   */
+  addGames(username: string, archive: string, games: RawGame[], now: Date = new Date()): number {
+    const user = (this.users[userKey(username)] ??= { archives: {} });
+    const archives = (user.archives ??= {});
+    const entry = (archives[archive] ??= { final: false, games: [] });
+    const known = new Set(entry.games.map((g) => g.url));
+    let fresh = 0;
+    for (const g of games) {
+      if (known.has(g.url)) continue;
+      known.add(g.url);
+      entry.games.push(g);
+      fresh++;
+    }
+    user.refreshed = Math.floor(now.getTime() / 1000);
     return fresh;
   }
 
