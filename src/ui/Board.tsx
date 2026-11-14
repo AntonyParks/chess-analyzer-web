@@ -13,6 +13,10 @@ export interface Arrow {
   from: string;
   to: string;
   color: string;
+  /** A small badge on the arrow (e.g. the move's place in a line: 1, 2, 3). */
+  label?: string;
+  /** 0..1, default 0.82. */
+  opacity?: number;
 }
 
 export interface BoardProps {
@@ -328,10 +332,24 @@ function Arrows({ arrows, flipped }: { arrows: Arrow[]; flipped: boolean }) {
         const by = y2 - uy * head;
         const px = -uy * 2.2;
         const py = ux * 2.2;
+        // The badge sits on the shaft, a little way from the tail, clear of the piece's centre.
+        const t = Math.min(0.5, 7.5 / len);
+        const lx = x1 + (bx - x1) * t;
+        const ly = y1 + (by - y1) * t;
         return (
-          <g key={i} opacity={0.82}>
-            <line x1={x1} y1={y1} x2={bx} y2={by} stroke={a.color} strokeWidth={1.8} strokeLinecap="round" />
-            <polygon points={`${x2},${y2} ${bx + px},${by + py} ${bx - px},${by - py}`} fill={a.color} />
+          <g key={i}>
+            <g opacity={a.opacity ?? 0.82}>
+              <line x1={x1} y1={y1} x2={bx} y2={by} stroke={a.color} strokeWidth={1.8} strokeLinecap="round" />
+              <polygon points={`${x2},${y2} ${bx + px},${by + py} ${bx - px},${by - py}`} fill={a.color} />
+            </g>
+            {a.label && (
+              <g>
+                <circle cx={lx} cy={ly} r={2.5} fill={a.color} stroke="#fff" strokeWidth={0.45} />
+                <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={3.1} fontWeight={700} fill="#fff">
+                  {a.label}
+                </text>
+              </g>
+            )}
           </g>
         );
       })}

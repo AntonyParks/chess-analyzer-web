@@ -415,12 +415,23 @@ function PuzzlePlayer({
   };
   const showLine = (afterFen: string, ucis: string[]) => {
     if (!ucis.length) return;
-    setLine(`Engine line: ${sanLine(ucis, afterFen)}`);
+    const shown = Math.min(4, ucis.length);
+    setLine(
+      `Engine line: ${sanLine(ucis, afterFen)}. Arrows ${shown > 1 ? `1–${shown}` : "1"} show its first moves in order (green yours, red theirs).`,
+    );
+    // The first moves of the line, numbered in order: green for your moves, red for theirs,
+    // fading a little as the line goes on.
     const arr: Arrow[] = [];
-    const colours = ["#44aa66", "#cc6644", "#4488cc", "#8899aa"];
     let f = afterFen;
     for (const [i, u] of ucis.slice(0, 4).entries()) {
-      arr.push({ from: u.slice(0, 2), to: u.slice(2, 4), color: colours[i] });
+      const mine = (f.split(" ")[1] === "w") === puzzle.userWhite;
+      arr.push({
+        from: u.slice(0, 2),
+        to: u.slice(2, 4),
+        color: mine ? "#2e9d5a" : "#c0503a",
+        label: String(i + 1),
+        opacity: 0.85 - i * 0.1,
+      });
       const n = after(f, u);
       if (!n) break;
       f = n;
