@@ -136,4 +136,17 @@ describe("game library", () => {
     expect(() => GameLibrary.fromJSON([1, 2])).toThrow();
     expect(() => GameLibrary.fromJSON({ version: 1 })).toThrow();
   });
+
+  it("lists the users who have games, most games first (for imports with no username set)", () => {
+    const lib = GameLibrary.fromJSON({
+      version: 1,
+      users: {
+        few: { archives: { [`${ROOT}/2026/10`]: { final: true, games: [game("u1", 1)] } } },
+        many: { archives: { [`${ROOT}/2026/10`]: { final: true, games: [game("u2", 1), game("u3", 2)] } } },
+        none: { archives: {} },
+      },
+    });
+    expect(lib.usernames()).toEqual(["many", "few"]);
+    expect(new GameLibrary().usernames()).toEqual([]);
+  });
 });

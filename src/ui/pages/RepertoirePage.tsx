@@ -117,6 +117,7 @@ function Builder({
   const [pendingReplace, setPendingReplace] = useState<{ existing: string; next: string } | null>(null);
   const [undo, setUndo] = useState<{ json: RepertoireJSON; text: string } | null>(null);
   const [merging, setMerging] = useState(false);
+  const [checkNote, setCheckNote] = useState<{ text: string; bad: boolean } | null>(null);
 
   /** Remove one move (and what only it led to), with an Undo. */
   const removeMove = (positionEpd: string, uci: string) => {
@@ -362,9 +363,18 @@ function Builder({
   };
 
   const checkGames = () => {
-    const user = settings.chesscomUsername.trim();
-    if (!user || !data.library.hasUser(user)) return setMessage("Download your chess.com games on the Puzzles tab first.");
-    if (!rep.nodes.size) return setMessage("Add some lines first.");
+    // The Puzzles tab's username, or else whoever's games are in the library (e.g. imported in Settings).
+    const named = settings.chesscomUsername.trim();
+    const user = named && data.library.hasUser(named) ? named : data.library.usernames()[0];
+    if (!user) {
+      setDeviations(null);
+      return setCheckNote({ text: "No games yet: download your chess.com games on the Puzzles tab, or import them in Settings.", bad: true });
+    }
+    if (!named) update({ chesscomUsername: user });
+    if (!rep.nodes.size) {
+      setDeviations(null);
+      return setCheckNote({ text: "Add some lines first.", bad: true });
+    }
     const counts = new Map<string, { dev: Deviation; count: number; path: string[] }>();
     let checked = 0;
     for (const g of data.library.games(user)) {
@@ -388,7 +398,16 @@ function Builder({
     }
     const list = [...counts.values()].sort((a, b) => b.count - a.count);
     setDeviations(list);
-    setMessage(`Checked ${checked} games as ${color(rep) === "w" ? "White" : "Black"}: ${list.reduce((n, d) => n + d.count, 0)} left the repertoire.`);
+    const side = color(rep) === "w" ? "White" : "Black";
+    const left = list.reduce((n, d) => n + d.count, 0);
+    setCheckNote(
+      checked === 0
+        ? { text: `No games as ${side} found for ${user}.`, bad: true }
+        : {
+            text: `Checked ${checked} of ${user}'s games as ${side}: ${left ? `${left} left the repertoire${list.length ? ", most common first below (click a row to see it)" : ""}.` : "every one stayed in the repertoire as far as it goes."}`,
+            bad: false,
+          },
+    );
   };
 
   const due = rep.due().length;
@@ -546,6 +565,11 @@ function Builder({
             Check my games
           </button>
         </div>
+        {checkNote && (
+          <p className={`small ${checkNote.bad ? "warn" : ""}`} style={{ margin: 0 }} role="status">
+            {checkNote.text}
+          </p>
+        )}
         {deviations && deviations.length > 0 && (
           <SortTable
             rows={deviations}

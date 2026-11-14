@@ -147,6 +147,14 @@ export class GameLibrary {
     return Math.trunc(Number(this.user(username).refreshed ?? 0)) || 0;
   }
 
+  /** Every user with downloaded games, most games first. */
+  usernames(): string[] {
+    const count = (u: Partial<UserEntry>) => Object.values(u.archives ?? {}).reduce((n, e) => n + (e?.games?.length ?? 0), 0);
+    return Object.keys(this.users)
+      .filter((k) => this.hasUser(k))
+      .sort((a, b) => count(this.users[b]) - count(this.users[a]));
+  }
+
   hasUser(username: string): boolean {
     return Object.keys(this.user(username).archives ?? {}).length > 0;
   }
