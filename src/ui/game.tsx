@@ -3,7 +3,7 @@
  * building, plus the live analysis of the shown position (the heatmap).
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { epd, legalUcis, turnOf } from "../core/chess";
+import { board, epd, legalUcis, playUci, turnOf } from "../core/chess";
 import { bestUci, rankMoves } from "../core/evaluation";
 import { GameState, type PlyAnalysis } from "../core/gameState";
 import { Kind } from "../engine/scheduler";
@@ -24,6 +24,15 @@ export interface GameApi {
   /** A position shown on the board without playing it (hovering a move in an engine line). */
   preview: Preview | null;
   setPreview: (p: Preview | null) => void;
+  /** The position left on a page's own board (puzzles, training), for the analysis board to pick up. */
+  carry: Carry;
+}
+
+export interface Carry {
+  /** The board's starting position and the moves played on it since. */
+  set: (start: string, moves: readonly string[]) => void;
+  /** The carried position as a game, once; null if none. */
+  take: () => GameState | null;
 }
 
 export interface Preview {
@@ -39,6 +48,25 @@ export function GameProvider({ children, depth, enabled }: { children: ReactNode
   const [animate, setAnimate] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const carried = useRef<{ start: string; moves: string[] } | null>(null);
+  const carry = useMemo<Carry>(
+    () => ({
+      set: (start, moves) => void (carried.current = { start, moves: [...moves] }),
+      take: () => {
+        const c = carried.current;
+        carried.current = null;
+        if (!c) return null;
+        const s = new GameState(c.start);
+        const g = board(c.start);
+        for (const uci of c.moves) {
+          if (!playUci(g, uci)) break;
+          s.push(uci);
+        }
+        return s;
+      },
+    }),
+    [],
+  );
   const touch = useCallback(() => setTick((t) => t + 1), []);
   const { main } = useEngines();
 
@@ -113,7 +141,7 @@ export function GameProvider({ children, depth, enabled }: { children: ReactNode
   }, [main, enabled, fen, ply, version, depth, game, touch]);
 
   const value = useMemo<GameApi>(
-    () => ({ game: ref.current, touch, tick, thinking, play, goto, load, animate, preview, setPreview }),
+    () => ({ game: ref.current, touch, tick, thinking, play, goto, load, animate, preview, setPreview, carry }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tick, thinking, animate, preview],
   );
@@ -124,4 +152,29 @@ export function useGame(): GameApi {
   const api = useContext(GameContext);
   if (!api) throw new Error("useGame outside GameProvider");
   return api;
+}
+
+/**
+ * Records a page's own board (a puzzle, repertoire training) so the analysis board carries on
+ * from it after a tab switch: the position the board started from and the moves played since.
+ */
+export function useCarryBoard(fen: string, lastMove: string | null) {
+  const { carry } = useGame();
+  const line = useRef<{ start: string; moves: string[]; fen: string } | null>(null);
+  useEffect(() => {
+    const l = line.current;
+    let follows = false;
+    if (l && lastMove) {
+      const g = board(l.fen);
+      follows = !!playUci(g, lastMove) && epd(g.fen()) === epd(fen);
+    }
+    if (l && follows) {
+      l.moves.push(lastMove!);
+      l.fen = fen;
+    } else {
+      line.current = { start: fen, moves: [], fen }; // a new line, or a jump
+    }
+    carry.set(line.current!.start, line.current!.moves);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fen, carry]);
 }

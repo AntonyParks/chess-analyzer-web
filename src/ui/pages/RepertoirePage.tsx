@@ -23,7 +23,7 @@ import { INACCURACY, formatCp, winDrop } from "../../core/evaluation";
 import { Kind } from "../../engine/scheduler";
 import { useData } from "../data";
 import { useEngines } from "../engine";
-import { useGame } from "../game";
+import { useCarryBoard, useGame } from "../game";
 import { Sunburst } from "../Sunburst";
 import { SortTable, explorerColumns, useExplorer, useLichess, useSteady, type Column } from "../lichess";
 import type { Settings } from "../settings";
@@ -851,6 +851,7 @@ function Trainer({
 }) {
   const [fen, setFen] = useState<string>(START_FEN);
   const [lastMove, setLastMove] = useState<string | null>(null);
+  useCarryBoard(fen, lastMove);
   const [expected, setExpected] = useState<TrainStep | null>(null);
   const [prompt, setPrompt] = useState("");
   const [feedback, setFeedback] = useState<{ text: string; cls: string }>({ text: "", cls: "" });

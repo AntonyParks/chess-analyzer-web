@@ -11,7 +11,12 @@ import type { Settings } from "./settings";
 import { TIPS } from "./tips";
 
 export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; extraArrows?: Arrow[] }) {
-  const { game, play, goto, animate, thinking, preview } = useGame();
+  const { game, play, goto, animate, thinking, preview, carry, load } = useGame();
+  // Coming from a page with its own board (a puzzle, repertoire training): carry on from there.
+  useEffect(() => {
+    const carried = carry.take();
+    if (carried) load(carried);
+  }, [carry, load]);
   const [selected, setSelected] = useState<string | null>(null);
   const fen = game.fen;
   const ply = game.currentPly;

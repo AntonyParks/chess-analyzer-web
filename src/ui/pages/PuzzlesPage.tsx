@@ -2,6 +2,7 @@
  * Puzzles from your games: download your chess.com games once, scan them for your own
  * mistakes in the background, and replay each as a puzzle (port of ui/puzzles_panel.py).
  */
+import { useCarryBoard } from "../game";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { PIECE_NAMES, after, sanLine, sanOf } from "../../core/chess";
@@ -370,6 +371,7 @@ function PuzzlePlayer({
   const [step, setStep] = useState(0);
   const [fen, setFen] = useState(steps[0].fen);
   const [lastMove, setLastMove] = useState<string | null>(null);
+  useCarryBoard(fen, lastMove);
   const [feedback, setFeedback] = useState<{ text: string; cls: string }>({
     text: "Your move. Tap a piece, then where it goes, or drag it.",
     cls: "muted",
