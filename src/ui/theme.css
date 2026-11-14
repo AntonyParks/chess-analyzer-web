@@ -177,3 +177,18 @@ table.data tr.selected { background: var(--surface-2); box-shadow: inset 3px 0 0
 .tree li > .tree-x { visibility: hidden; border: 0; background: transparent; color: var(--bad); cursor: pointer; padding: 0 4px; font-size: 11px; }
 .tree li:hover > .tree-x, .tree li > .tree-x:focus-visible { visibility: visible; }
 @media (hover: none) { .tree li > .tree-x { visibility: visible; } }
+
+/* Repertoire sunburst */
+.sunburst { display: flex; flex-direction: column; gap: 8px; }
+.sunburst svg[role="img"] { width: 100%; max-width: 460px; aspect-ratio: 1; margin: 0 auto; display: block; user-select: none; }
+.sunburst svg[role="img"] text { font-family: var(--font); }
+.sunburst-line { margin: 0; min-height: 2.9em; text-align: center; }
+.sb-summary { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 220px; }
+.sb-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface-2); }
+.sb-bar > span { display: block; height: 100%; transition: width 300ms ease; }
+.sb-bar > span + span { box-shadow: -1px 0 0 var(--surface); }
+.sb-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; color: var(--muted); }
+.sb-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; background: var(--surface-2); }
+.seg > button { border: 0; background: transparent; padding: 3px 11px; border-radius: 999px; cursor: pointer; font-size: 12px; color: var(--muted); }
+.seg > button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); font-weight: 600; }

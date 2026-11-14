@@ -25,6 +25,8 @@ export interface Settings {
   sortBlack: string[];
   /** While building, play the opponent's most common unprepared reply automatically. */
   repertoireAutoplay: boolean;
+  /** How the Train panel shows your lines. */
+  repertoireView: "sunburst" | "list";
 }
 
 export const DEFAULTS: Settings = {
@@ -49,6 +51,7 @@ export const DEFAULTS: Settings = {
   sortWhite: ["Games", "desc"],
   sortBlack: ["Games", "desc"],
   repertoireAutoplay: false,
+  repertoireView: "sunburst",
 };
 
 const KEY = "chess-analyzer-settings-v1";

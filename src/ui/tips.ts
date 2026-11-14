@@ -96,6 +96,8 @@ export const TIPS = {
   repRemove: "Remove the move that led to this position, and whatever only it led to.",
   repGap: "Jump to the likeliest position your repertoire does not answer yet.",
   repAutoplay: "When it is the opponent's turn, play their most common reply that your repertoire does not answer yet (at least 1 in your coverage games), so you can keep building. Step back to choose a different reply yourself.",
+  repSunburst: "Your repertoire as rings from the start: each wedge's size is how often that line comes up in games at your ratings. Red wedges are gaps.",
+  repList: "Your repertoire as a move list, where you can also remove moves.",
   repMerge: "Find places where a different move of yours lands straight in another of your lines, so two lines become one and you have fewer moves to learn. Each swap is checked by the engine.",
   repMergeAll: "Apply every swap the engine finds sound (it gives up less than an inaccuracy). Undo puts everything back.",
   repMergeOne: "Swap your move for the joining one. What only your old move led to is removed; Undo puts it back.",

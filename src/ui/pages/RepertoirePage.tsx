@@ -24,6 +24,7 @@ import { Kind } from "../../engine/scheduler";
 import { useData } from "../data";
 import { useEngines } from "../engine";
 import { useGame } from "../game";
+import { Sunburst } from "../Sunburst";
 import { SortTable, explorerColumns, useExplorer, useLichess, type Column } from "../lichess";
 import type { Settings } from "../settings";
 import { TIPS } from "../tips";
@@ -555,11 +556,41 @@ function Builder({
             ]}
           />
         )}
-        <RepTree rep={rep} onRemove={removeMove} onPick={(path) => {
-          const s = new GameState();
-          s.loadGame(START_FEN, path);
-          load(s);
-        }} />
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h3 style={{ margin: 0 }}>Your lines</h3>
+          <div className="seg" role="group" aria-label="Show lines as">
+            {(["sunburst", "list"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={settings.repertoireView === v ? "on" : ""}
+                aria-pressed={settings.repertoireView === v}
+                onClick={() => update({ repertoireView: v })}
+                data-tip={v === "sunburst" ? TIPS.repSunburst : TIPS.repList}
+              >
+                {v === "sunburst" ? "Sunburst" : "List"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {settings.repertoireView === "sunburst" ? (
+          <Sunburst
+            rep={rep}
+            coverage={settings.repertoireCoverage}
+            version={data.version}
+            onShow={(path) => {
+              const s = new GameState();
+              s.loadGame(START_FEN, path);
+              load(s);
+            }}
+          />
+        ) : (
+          <RepTree rep={rep} onRemove={removeMove} onPick={(path) => {
+            const s = new GameState();
+            s.loadGame(START_FEN, path);
+            load(s);
+          }} />
+        )}
       </section>
     </div>
   );
