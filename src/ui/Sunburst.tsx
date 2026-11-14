@@ -421,8 +421,11 @@ function usePanZoom() {
   const toBox = useCallback((cx: number, cy: number) => {
     const svg = svgRef.current;
     if (!svg) return { x: C, y: C };
-    const r = svg.getBoundingClientRect();
-    return { x: ((cx - r.left) / r.width) * SIZE, y: ((cy - r.top) / r.height) * SIZE };
+    // The box may be wider than tall: the chart keeps its shape and the sides show more of it.
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: C, y: C };
+    const p = new DOMPoint(cx, cy).matrixTransform(ctm.inverse());
+    return { x: p.x, y: p.y };
   }, []);
 
   /** Zoom by ``factor`` keeping the point ``at`` (viewBox units) where it is. */
@@ -460,7 +463,7 @@ function usePanZoom() {
         const prev = map.get(ev.pointerId);
         if (!prev) return;
         const svg = svgRef.current;
-        const unit = svg ? SIZE / svg.getBoundingClientRect().width : 1;
+        const unit = 1 / (svg?.getScreenCTM()?.a || 1); // screen pixels to chart units
         if (map.size >= 2) {
           // Pinch: scale by the change in finger distance, pan by the midpoint's movement.
           const [a, b] = [...map.entries()];

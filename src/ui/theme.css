@@ -180,9 +180,11 @@ table.data tr.selected { background: var(--surface-2); box-shadow: inset 3px 0 0
 
 /* Repertoire sunburst */
 .sunburst { display: flex; flex-direction: column; gap: 8px; }
-.sb-stage { position: relative; width: 100%; max-width: 460px; margin: 0 auto; border-radius: 14px; overflow: hidden;
+.sb-stage { position: relative; width: 100%; border-radius: 14px; overflow: hidden;
   background: radial-gradient(circle at 50% 45%, var(--surface) 0%, var(--surface-2) 100%); border: 1px solid var(--line); }
-.sunburst svg[role="img"] { width: 100%; aspect-ratio: 1; display: block; user-select: none; touch-action: none; cursor: grab; }
+/* As wide as the panel; square until it would get taller than 520px, then the extra width
+   simply shows more of the chart. */
+.sunburst svg[role="img"] { width: 100%; aspect-ratio: 1; max-height: 520px; display: block; user-select: none; touch-action: none; cursor: grab; }
 .sunburst svg[role="img"]:active { cursor: grabbing; }
 .sb-zoom { position: absolute; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
 .sb-zoom button { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
