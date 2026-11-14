@@ -197,3 +197,5 @@ table.data tr.selected { background: var(--surface-2); box-shadow: inset 3px 0 0
 .fresh { transition: opacity 120ms ease; }
 .stale { opacity: 0.5; pointer-events: none; transition: opacity 200ms ease 350ms; }
 .status-line { margin: 0; min-height: 1.45em; }
+.tree li > button.here { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.tree li > button.here .muted { color: inherit; opacity: 0.8; }

@@ -587,6 +587,7 @@ function Builder({
             rep={rep}
             coverage={settings.repertoireCoverage}
             version={data.version}
+            current={here}
             onShow={(path) => {
               const s = new GameState();
               s.loadGame(START_FEN, path);
@@ -594,7 +595,7 @@ function Builder({
             }}
           />
         ) : (
-          <RepTree rep={rep} onRemove={removeMove} onPick={(path) => {
+          <RepTree rep={rep} current={here} onRemove={removeMove} onPick={(path) => {
             const s = new GameState();
             s.loadGame(START_FEN, path);
             load(s);
@@ -748,15 +749,27 @@ function color(rep: Repertoire): "w" | "b" {
 
 function RepTree({
   rep,
+  current,
   onPick,
   onRemove,
 }: {
   rep: Repertoire;
+  /** The board's position: the move that reaches it is highlighted. */
+  current: string;
   onPick: (path: string[]) => void;
   onRemove: (positionEpd: string, uci: string) => void;
 }) {
   const now = Date.now() / 1000;
   const shown = new Set<string>();
+  // Keep the board's move in view, scrolling only the list's own box (never the page).
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current?.querySelector<HTMLElement>("button.here");
+    const b = box.current;
+    if (!el || !b) return;
+    const top = el.getBoundingClientRect().top - b.getBoundingClientRect().top + b.scrollTop;
+    if (top < b.scrollTop || top + el.offsetHeight > b.scrollTop + b.clientHeight) b.scrollTop = top - b.clientHeight / 3;
+  }, [current]);
   const render = (fen: string, path: string[], depth: number): JSX.Element | null => {
     const e = epd(fen);
     if (shown.has(e)) return null;
@@ -775,7 +788,12 @@ function RepTree({
           const joined = shown.has(afterE) ? rep.pathTo(afterE) : null;
           return (
             <li key={uci}>
-              <button type="button" onClick={() => onPick([...path, uci])}>
+              <button
+                type="button"
+                className={afterE === current ? "here" : undefined}
+                aria-current={afterE === current ? "true" : undefined}
+                onClick={() => onPick([...path, uci])}
+              >
                 {label}
                 <span className="muted small">{tag}</span>
                 {joined && <span className="muted small"> ↪ continues at {sanLine(joined)}</span>}
@@ -791,7 +809,7 @@ function RepTree({
     );
   };
   const tree = render(START_FEN, [], 0);
-  return tree ? <div className="tree">{tree}</div> : <p className="small muted">Your lines appear here.</p>;
+  return tree ? <div className="tree" ref={box}>{tree}</div> : <p className="small muted">Your lines appear here.</p>;
 }
 
 // ── Training ─────────────────────────────────────────────────────────────────

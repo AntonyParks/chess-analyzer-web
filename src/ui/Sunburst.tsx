@@ -24,11 +24,14 @@ export function Sunburst({
   rep,
   coverage,
   version,
+  current,
   onShow,
 }: {
   rep: Repertoire;
   coverage: number;
   version: number;
+  /** The position on the board (EPD): its wedge is outlined. */
+  current: string;
   onShow: (path: string[]) => void;
 }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -57,6 +60,8 @@ export function Sunburst({
 
   const wedges: JSX.Element[] = [];
   const labels: JSX.Element[] = [];
+  const marks: JSX.Element[] = [];
+  let boardNode: MapNode | null = null; // the wedge for the board's position, drawn or not
   const span = Math.max(1e-9, view.a1 - view.a0);
   const radius = (d: number) => R_IN + (R_OUT - R_IN) * Math.pow(Math.max(0, d) / RINGS, 0.88);
   const visit = (n: MapNode) => {
@@ -64,6 +69,8 @@ export function Sunburst({
     if (d > RINGS + 0.001) return;
     const t0 = clamp01((n.a0 - view.a0) / span);
     const t1 = clamp01((n.a1 - view.a0) / span);
+    const isHere = n.epd === current && n.kind !== "rare" && n.kind !== "root";
+    if (isHere && (!boardNode || n.depth < boardNode.depth)) boardNode = n;
     if (t1 - t0 < 0.0008) return;
     if (d >= 0.999) {
       const r0 = radius(d - 1);
@@ -97,6 +104,16 @@ export function Sunburst({
           <path key={`${n.id}#h`} d={sector(t0, t1, r0, r1)} fill={`url(#sb-hatch-${fill.hatch})`} opacity={dim ? 0.3 : 1} pointerEvents="none" />,
         );
       }
+      if (isHere) {
+        // The board's position: a crisp double outline, on top of everything.
+        const shape = sector(t0, t1, r0, r1);
+        marks.push(
+          <g key={`${n.id}#here`} pointerEvents="none">
+            <path d={shape} fill="none" stroke="var(--surface)" strokeWidth={6.5} strokeLinejoin="round" />
+            <path d={shape} fill="none" stroke="var(--ink)" strokeWidth={3} strokeLinejoin="round" />
+          </g>,
+        );
+      }
       // A label when the wedge has room for it, set along the radius.
       const mid = (t0 + t1) / 2;
       const rMid = (r0 + r1) / 2;
@@ -126,6 +143,10 @@ export function Sunburst({
   };
   visit(root);
 
+  // The board is at the centre's position, or at a move folded into the centre.
+  let centreHere = false;
+  for (let n: MapNode | undefined = focusNode; n; n = n === centre ? undefined : n.children[0]) if (n.epd === current) centreHere = true;
+  const boardShown = boardNode as MapNode | null;
   const centreLine = hovered && hovered !== root && hovered.depth > centre.depth ? hovered : focusNode !== root ? centre : null;
   const centreMoves = centre.path.length ? sanLine(centre.path.slice(-4), fenBefore(centre.path, 4)) : "";
   const empty = !root.children.length;
@@ -170,6 +191,7 @@ export function Sunburst({
         </defs>
         {wedges}
         {labels}
+        {marks}
         <g
           style={{ cursor: focusNode !== root ? "zoom-out" : "default" }}
           onClick={() => {
@@ -183,6 +205,7 @@ export function Sunburst({
           }}
         >
           <circle cx={C} cy={C} r={R_IN - 3} fill="url(#sb-centre)" stroke="var(--line)" />
+          {centreHere && <circle cx={C} cy={C} r={R_IN - 3} fill="none" stroke="var(--ink)" strokeWidth={2.2} pointerEvents="none" />}
           {empty ? (
             <text x={C} y={C} textAnchor="middle" dominantBaseline="central" fontSize={11} fill="var(--muted)">
               No lines yet
@@ -228,6 +251,11 @@ export function Sunburst({
           <>
             <b>{lineText(hovered)}</b> · {pct(hovered.chance)} of your games
             {hovered.estimated ? " (estimated: no Lichess counts here yet)" : ""}
+          </>
+        ) : boardShown ? (
+          <>
+            <span className="muted">On the board (outlined): </span>
+            <b>{lineText(boardShown)}</b> · {pct(boardShown.chance)} of your games
           </>
         ) : (
           <span className="muted">
