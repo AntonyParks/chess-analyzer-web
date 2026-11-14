@@ -75,7 +75,7 @@ describe("LichessClient", () => {
     expect(headers.Authorization).toBe("Bearer tok");
     expect(Object.keys(headers).map((k) => k.toLowerCase())).not.toContain("user-agent");
     const parsed = new URL(url);
-    expect(parsed.origin + parsed.pathname).toBe("https://explorer.lichess.ovh/lichess");
+    expect(parsed.origin + parsed.pathname).toBe("https://explorer.lichess.org/lichess");
     expect(Object.fromEntries(parsed.searchParams)).toEqual({
       fen: FEN,
       variant: "standard",

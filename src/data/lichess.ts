@@ -2,7 +2,7 @@
  * Lichess opening-explorer client (port of lichess_api.py): one place for the URL, auth,
  * errors and caching.
  *
- * The explorer (``explorer.lichess.ovh``) requires an API token and asks clients to wait a
+ * The explorer (``explorer.lichess.org``) requires an API token and asks clients to wait a
  * minute after a 429. Castling comes back as king-takes-rook UCI (``e1h1``), so moves are
  * parsed from SAN. Positions are FEN strings; moves are UCI strings in chess.js's notation
  * (castling as king-two-squares, ``e1g1``).
@@ -11,7 +11,7 @@
  */
 import { board, epd, isLegal, moveToUci, playUci } from "../core/chess";
 
-export const EXPLORER_URL = "https://explorer.lichess.ovh/lichess";
+export const EXPLORER_URL = "https://explorer.lichess.org/lichess";
 export const SPEEDS = ["ultraBullet", "bullet", "blitz", "rapid", "classical", "correspondence"] as const;
 export type Speed = (typeof SPEEDS)[number];
 export const SPEED_LABELS: Record<Speed, string> = {

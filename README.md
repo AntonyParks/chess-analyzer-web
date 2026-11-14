@@ -32,7 +32,7 @@ TypeScript.
 ## Your data stays in your browser
 
 - **Games, puzzles, results and your repertoire** are stored in this browser's IndexedDB and never uploaded anywhere.
-  - The only network calls are to `api.chess.com` (your public games) and `explorer.lichess.ovh` / `lichess.org` (opening
+  - The only network calls are to `api.chess.com` (your public games) and `explorer.lichess.org` / `lichess.org` (opening
     data and login).
   - Browsers can clear site data, so use **Settings → Download backup** now and then.
 - **Moving from the desktop app:** you can import its `puzzles.json`, `repertoire.json` and `chesscom_games.json`.
