@@ -44,7 +44,7 @@ export function MoveList() {
   );
 }
 
-export function EngineLines({ count = 3 }: { count?: number }) {
+export function EngineLines({ count = 10 }: { count?: number }) {
   const { game, play, setPreview } = useGame();
   useEffect(() => () => setPreview(null), [setPreview]); // leaving the page ends any preview
   const analysis = game.analysis.get(game.currentPly);
@@ -187,7 +187,7 @@ export function AnalysePage({ settings, update }: { settings: Settings; update: 
         </div>
         <EngineLines />
         <p className="small muted" style={{ margin: 0 }}>
-          Tap a piece to see the evaluation of each of its moves. Heatmap colours run from red (worst) to gold (best).
+          Tap a piece to see the evaluation of each of its moves. Heatmap colours run from red (worst) to green (best), and a gold star marks the piece with the best move. Point at a move in a line to see it on the board.
         </p>
       </section>
       <section className="panel">

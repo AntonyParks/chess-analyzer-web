@@ -37,7 +37,7 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
   }, [game, goto]);
 
   // The heatmap: each piece's square split into bands, one per legal move of that piece, each
-  // coloured by that move's rank (red worst, gold best). The best move is the top band, then
+  // coloured by that move's rank (red worst, green best). The best move is the top band, then
   // down to the worst.
   const bands = useMemo(() => {
     if (!settings.heatmap || !analysis) return undefined;
