@@ -23,6 +23,8 @@ export interface Settings {
   /** Move-table sort for White-to-move and Black-to-move positions: [column, "asc" | "desc"]. */
   sortWhite: string[];
   sortBlack: string[];
+  /** While building, play the opponent's most common unprepared reply automatically. */
+  repertoireAutoplay: boolean;
 }
 
 export const DEFAULTS: Settings = {
@@ -46,6 +48,7 @@ export const DEFAULTS: Settings = {
   repertoireCoverage: 50,
   sortWhite: ["Games", "desc"],
   sortBlack: ["Games", "desc"],
+  repertoireAutoplay: false,
 };
 
 const KEY = "chess-analyzer-settings-v1";

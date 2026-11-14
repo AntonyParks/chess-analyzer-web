@@ -286,3 +286,53 @@ describe("RepertoireStore", () => {
     expect(black.contains(epdAfter("d4", "Nf6", "c4", "e6", "Nc3", "Bb4"))).toBe(true);
   });
 });
+
+describe("merging lines", () => {
+  const A = ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "d3"];
+  const B = ["e4", "Nc6", "Bc4", "e5", "d3", "Nf6", "Nc3", "Bc5", "Be3"];
+  const build = () => {
+    const rep = new rp.Repertoire("w");
+    rep.addLine(START_FEN, line(A));
+    rep.addLine(START_FEN, line(B));
+    return rep;
+  };
+
+  it("finds moves that join another line, most moves saved first", () => {
+    const found = build().mergeCandidates();
+    expect(found.map((m) => [m.currentSan, m.san, m.saved])).toEqual([
+      ["d3", "Nf3", 4], // 3.Nf3 reaches 1.e4 e5 2.Nf3 Nc6 3.Bc4
+      ["Nc3", "Nf3", 2], // 4.Nf3 reaches the end of that line
+    ]);
+    const m = found[0];
+    expect(m.epd).toBe(epdAfter(...B.slice(0, 4)));
+    expect(m.path).toEqual(line(B.slice(0, 4)));
+    expect(m.joins).toEqual(line(A.slice(0, 5)));
+  });
+
+  it("applies the swap: the old continuation goes, the joined line stays, the card restarts", () => {
+    const rep = build();
+    const m = rep.mergeCandidates()[0];
+    rep.grade(m.epd, true, 1000);
+    const sizeBefore = rep.size();
+    rep.swapUserMove(m.epd, m.uci);
+    expect(rep.size()).toBe(sizeBefore - m.saved);
+    expect(rep.userMove(m.epd)).toBe(m.uci);
+    expect(rep.contains(epdAfter(...A))).toBe(true);
+    expect(rep.contains(epdAfter(...B))).toBe(false);
+    expect(rep.cards.get(m.epd)!.learned).toBe(false);
+    expect(rep.mergeCandidates()).toHaveLength(0);
+  });
+
+  it("offers nothing when move orders already meet or nothing would be saved", () => {
+    expect(whiteRep().mergeCandidates()).toEqual([]);
+    const rep = new rp.Repertoire("w");
+    rep.addLine(START_FEN, line(A));
+    rep.addLine(START_FEN, line(["e4", "Nc6", "Bc4", "e5", "Nc3"])); // 3.Nf3 would join, but Nc3 ends the line
+    expect(rep.mergeCandidates()).toEqual([]);
+  });
+
+  it("refuses to swap at the opponent's positions", () => {
+    const rep = build();
+    expect(() => rep.swapUserMove(epdAfter("e4"), line(["e4", "e5"])[1])).toThrow();
+  });
+});

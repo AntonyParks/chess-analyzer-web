@@ -5,10 +5,11 @@
  */
 import { Chess } from "chess.js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ROOT_EPD, START_FEN, epd, isLegal, moveToUci, playUci, sanLine, sanOf, turnOf } from "../../core/chess";
+import { ROOT_EPD, START_FEN, epd, fenFromEpd, isLegal, moveToUci, playUci, sanLine, sanOf, turnOf } from "../../core/chess";
 import { GameState } from "../../core/gameState";
 import {
   type Deviation,
+  type MergeCandidate,
   type Repertoire,
   type RepertoireEntry,
   type RepertoireJSON,
@@ -18,7 +19,10 @@ import {
 } from "../../core/repertoire";
 import { LichessRateLimited, RATING_CHOICES, type MoveStats, makeMoveStats } from "../../data/lichess";
 import { Board, type Arrow } from "../Board";
+import { INACCURACY, formatCp, winDrop } from "../../core/evaluation";
+import { Kind } from "../../engine/scheduler";
 import { useData } from "../data";
+import { useEngines } from "../engine";
 import { useGame } from "../game";
 import { SortTable, explorerColumns, useExplorer, useLichess, type Column } from "../lichess";
 import type { Settings } from "../settings";
@@ -111,6 +115,7 @@ function Builder({
   const [selected, setSelected] = useState<string | null>(null);
   const [pendingReplace, setPendingReplace] = useState<{ existing: string; next: string } | null>(null);
   const [undo, setUndo] = useState<{ json: RepertoireJSON; text: string } | null>(null);
+  const [merging, setMerging] = useState(false);
 
   /** Remove one move (and what only it led to), with an Undo. */
   const removeMove = (positionEpd: string, uci: string) => {
@@ -193,6 +198,37 @@ function Builder({
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rep, settings.lichessToken, query, data.version]);
+
+  // Auto-play: at the end of the line, on the opponent's turn, play their likeliest reply
+  // that the repertoire does not answer yet (once per position reached).
+  const autoplayed = useRef("");
+  const atEnd = game.currentPly === game.moves.length;
+  useEffect(() => {
+    if (!settings.repertoireAutoplay || !fromStart || !atEnd || turnOf(fen) === color(rep)) return;
+    const spot = `${game.moves.length}|${here}`;
+    if (autoplayed.current === spot || !result || result.epd !== here) return;
+    autoplayed.current = spot;
+    const threshold = result.total / Math.max(1, settings.repertoireCoverage);
+    const prepared = rep.movesAt(here);
+    const pick = [...result.moves]
+      .sort((a, b) => b.total - a.total)
+      .find((m) => m.total >= threshold && isLegal(fen, m.uci) && !prepared.has(m.uci) && !rep.transposition(fen, m.uci));
+    if (!pick) {
+      setMessage(`Every reply here played in at least 1 of ${settings.repertoireCoverage} games is prepared.`);
+      return;
+    }
+    let fired = false;
+    const timer = setTimeout(() => {
+      fired = true;
+      play(pick.uci);
+      setMessage(`Opponent played ${pick.san} (${Math.round((100 * pick.total) / Math.max(1, result.total))}% of games), your next unprepared reply.`);
+    }, REPLY_DELAY);
+    return () => {
+      clearTimeout(timer);
+      if (!fired && autoplayed.current === spot) autoplayed.current = ""; // try again
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.repertoireAutoplay, fen, atEnd, result, data.version, settings.repertoireCoverage]);
 
   const gaps = useMemo(() => {
     const map = new Map<string, number>();
@@ -409,6 +445,17 @@ function Builder({
           <button className="btn" type="button" onClick={goToGap} data-tip={TIPS.repGap}>
             Go to biggest gap
           </button>
+          <label className="chip" data-tip={TIPS.repAutoplay}>
+            <input
+              type="checkbox"
+              checked={settings.repertoireAutoplay}
+              onChange={(e) => update({ repertoireAutoplay: e.target.checked })}
+            />
+            Auto-play opponent
+          </label>
+          <button className="btn" type="button" onClick={() => setMerging((m) => !m)} aria-pressed={merging} data-tip={TIPS.repMerge}>
+            Merge my lines
+          </button>
         </div>
         {pendingReplace && (
           <div className="row warn small">
@@ -440,6 +487,38 @@ function Builder({
               Undo
             </button>
           </div>
+        )}
+        {merging && (
+          <MergePanel
+            rep={rep}
+            depth={settings.depth}
+            version={data.version}
+            onShow={(path) => {
+              const s = new GameState();
+              s.loadGame(START_FEN, [...path]);
+              load(s);
+            }}
+            onMerge={(picks) => {
+              const snapshot = rep.toJSON();
+              const sizeBefore = rep.size();
+              let merged = 0;
+              for (const p of picks) {
+                // An earlier merge can remove this one's position or target: re-check it.
+                const still = rep.mergeCandidates().find((c) => c.epd === p.epd && c.current === p.current && c.uci === p.uci);
+                if (!still) continue;
+                rep.swapUserMove(p.epd, p.uci);
+                merged++;
+              }
+              if (!merged) return setMessage("Nothing left to merge: your lines changed.");
+              data.save("repertoire");
+              const removed = sizeBefore - rep.size();
+              setMessage("");
+              setUndo({
+                json: snapshot,
+                text: `Merged ${merged} line${merged === 1 ? "" : "s"}; ${removed} move${removed === 1 ? "" : "s"} fewer to learn.`,
+              });
+            }}
+          />
         )}
         <p className="small muted" style={{ margin: 0 }}>Click a move in the table to play it on the board.</p>
       </section>
@@ -870,6 +949,158 @@ function Trainer({
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+// ── Merging lines ────────────────────────────────────────────────────────────
+
+type MergeCheck = { current: number; alt: number; drop: number } | "pending";
+
+/** Moves that would turn one of your lines into another, each checked by the engine. */
+function MergePanel({
+  rep,
+  depth,
+  version,
+  onShow,
+  onMerge,
+}: {
+  rep: Repertoire;
+  depth: number;
+  version: number;
+  onShow: (path: readonly string[]) => void;
+  onMerge: (picks: MergeCandidate[]) => void;
+}) {
+  const { main } = useEngines();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const found = useMemo(() => rep.mergeCandidates(), [rep, version]);
+  const [checks, setChecks] = useState<Record<string, MergeCheck>>({});
+  const keyOf = (c: MergeCandidate) => `${c.epd}|${c.current}|${c.uci}|${depth}`;
+  const side = rep.color;
+
+  useEffect(() => {
+    if (!main) return;
+    const ids: number[] = [];
+    const asked: Record<string, MergeCheck> = {};
+    for (const c of found) {
+      const key = keyOf(c);
+      if (checks[key]) continue;
+      asked[key] = "pending";
+      ids.push(
+        main.submit({
+          kind: Kind.BATCH,
+          fen: fenFromEpd(c.epd),
+          moves: [c.current, c.uci],
+          depth,
+          onDone: (r) => {
+            const a = r.evals[c.current];
+            const b = r.evals[c.uci];
+            if (!a || !b) return;
+            setChecks((m) => ({ ...m, [key]: { current: a.cpWhite, alt: b.cpWhite, drop: winDrop(a.cpWhite, b.cpWhite, side) } }));
+          },
+        }),
+      );
+    }
+    if (ids.length) setChecks((m) => ({ ...m, ...asked }));
+    return () => {
+      ids.forEach((id) => main.cancel(id));
+      // Unfinished checks are asked again next time.
+      setChecks((m) => Object.fromEntries(Object.entries(m).filter(([, v]) => v !== "pending")));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found, main, depth]);
+
+  const checked = (c: MergeCandidate) => {
+    const k = checks[keyOf(c)];
+    return k && k !== "pending" ? k : null;
+  };
+  const pending = found.filter((c) => !checked(c)).length;
+  const good = found.filter((c) => (checked(c)?.drop ?? 1) < INACCURACY);
+
+  if (!found.length) {
+    return (
+      <p className="small" style={{ margin: 0 }}>
+        No merges found: none of your own moves can be swapped for one that lands straight in another of your lines.
+        Move orders that already reach the same position are joined automatically.
+      </p>
+    );
+  }
+  return (
+    <div className="col" style={{ gap: 6 }}>
+      <div className="row small">
+        <span className="grow">
+          {found.length} possible merge{found.length === 1 ? "" : "s"}
+          {pending ? ` · engine checking ${pending}…` : ""}. A merge swaps one of your moves for one that joins another of
+          your lines, so you have fewer moves to learn.
+        </span>
+        <button
+          className="btn primary"
+          type="button"
+          disabled={!good.length || pending > 0}
+          onClick={() => onMerge(good)}
+          data-tip={TIPS.repMergeAll}
+        >
+          Merge all sound ({good.length})
+        </button>
+      </div>
+      <SortTable
+        rows={found}
+        rowKey={keyOf}
+        onPick={(c) => onShow(c.path)}
+        initialSort={2}
+        columns={[
+          {
+            head: "Where",
+            title: "Your position where the move would change. Click a row to show it on the board.",
+            cell: (c) => sanLine(c.path) || "start",
+            sort: (c) => c.path.length,
+          },
+          {
+            head: "Swap",
+            title: "Your move now, then the move that joins the other line.",
+            cell: (c) => (
+              <span>
+                {c.currentSan} → <b>{c.san}</b>
+              </span>
+            ),
+          },
+          { head: "Saves", num: true, title: "Moves that leave your repertoire with the old move.", cell: (c) => c.saved, sort: (c) => c.saved },
+          { head: "Joins", title: "The line the new move transposes into.", cell: (c) => sanLine(c.joins) },
+          {
+            head: "Engine",
+            num: true,
+            title: "Evaluation after your move now and after the joining move. Green: sound, it gives up less than an inaccuracy's worth.",
+            cell: (c) => {
+              const k = checked(c);
+              if (!k) return <span className="muted">…</span>;
+              const sound = k.drop < INACCURACY;
+              return (
+                <span className={sound ? "good" : "bad"} data-tip={sound ? "Sound swap" : "The joining move is clearly worse"}>
+                  {formatCp(k.current)} → {formatCp(k.alt)}
+                </span>
+              );
+            },
+            sort: (c) => -(checked(c)?.drop ?? 9),
+          },
+          {
+            head: "Merge",
+            title: "Apply this one swap.",
+            cell: (c) => (
+              <button
+                className="btn"
+                type="button"
+                data-tip={TIPS.repMergeOne}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMerge([c]);
+                }}
+              >
+                Merge
+              </button>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

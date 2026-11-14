@@ -14,7 +14,7 @@
  *
  * Moves are UCI strings, boards are FEN strings, times are unix seconds.
  */
-import { ROOT_EPD, START_FEN, afterEpd, board, epd as epdOf, playUci } from "./chess";
+import { ROOT_EPD, START_FEN, afterEpd, board, epd as epdOf, fenFromEpd as fenOf, legalUcis, playUci } from "./chess";
 import type { Color } from "./evaluation";
 
 export { ROOT_EPD };
@@ -76,6 +76,18 @@ export interface Gap {
   readonly uci: string | null; // the opponent's unprepared move; null: the user has no move here
   readonly san: string;
   readonly chance: number; // probability of reaching it, following the explorer counts
+}
+
+/** A different move at one of the user's positions that joins another of their lines. */
+export interface MergeCandidate {
+  readonly epd: string; // the user's position
+  readonly path: readonly string[]; // UCI moves from the start to ``epd``
+  readonly current: string; // the repertoire move there now (UCI)
+  readonly currentSan: string;
+  readonly uci: string; // the move that joins
+  readonly san: string;
+  readonly joins: readonly string[]; // the other line's path to the position it reaches
+  readonly saved: number; // moves the swap removes from the repertoire
 }
 
 /** Where one game left the repertoire. */
@@ -336,6 +348,61 @@ export class Repertoire {
       // Positions the walk later reached with a prepared answer are not gaps after all.
       .filter((g) => g.uci !== null || !(this.nodes.get(g.epd)?.size ?? 0))
       .sort((a, b) => b.chance - a.chance);
+  }
+
+  // ── Merging lines ───────────────────────────────────────────────────────────
+
+  /** Moves the user could play instead of their repertoire move that land straight on a
+   * position another of their lines already reaches, so the two lines become one. Only the
+   * user's own moves can be swapped (the opponent's are not ours to choose), and a swap is
+   * offered only if it removes at least one move and leaves no loop. Most saved first. */
+  mergeCandidates(): MergeCandidate[] {
+    const reach = this.reachable();
+    const before = this.size();
+    const out: MergeCandidate[] = [];
+    for (const position of reach.keys()) {
+      const current = this.userMove(position);
+      if (current === null) continue;
+      const currentAfter = afterEpd(position, current);
+      const fen = fenOf(position);
+      for (const uci of legalUcis(fen)) {
+        if (uci === current) continue;
+        const target = afterEpd(position, uci);
+        if (target === null || target === currentAfter || target === ROOT_EPD || !reach.has(target)) continue;
+        const trial = this.clone();
+        trial.swapUserMove(position, uci);
+        if (!trial.contains(target) || trial.leadsTo(target, new Set([position]))) continue;
+        const saved = before - trial.size();
+        if (saved < 1) continue;
+        out.push({
+          epd: position,
+          path: this.pathTo(position)!,
+          current,
+          currentSan: this.nodes.get(position)!.get(current)!,
+          uci,
+          san: sanAt(fen, uci),
+          joins: trial.pathTo(target)!,
+          saved,
+        });
+      }
+    }
+    return out.sort((a, b) => b.saved - a.saved || a.path.length - b.path.length);
+  }
+
+  /** Play ``uci`` instead of the current move at one of the user's positions. What only the
+   * old move led to goes, and the position's review card starts again (its answer changed). */
+  swapUserMove(position: string, uci: string): void {
+    if (!this.userToMove(position)) throw new Error("Not one of your positions.");
+    const san = sanAt(fenOf(position), uci);
+    this.nodes.set(position, new Map([[uci, san]]));
+    this.changed();
+    if (this.cards.has(position)) this.cards.set(position, new Card());
+  }
+
+  private clone(): Repertoire {
+    const copy = new Repertoire(this.color);
+    for (const [e, m] of this.nodes) copy.nodes.set(e, new Map(m));
+    return copy;
   }
 
   /** Reachable opponent positions with no explorer counts yet (nearest first). */
