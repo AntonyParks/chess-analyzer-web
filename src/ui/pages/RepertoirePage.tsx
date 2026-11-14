@@ -138,7 +138,7 @@ function Builder({
     () => ({ speeds: settings.explorerSpeeds, ratings: settings.repertoireRatings, moves: 20 }),
     [settings.explorerSpeeds, settings.repertoireRatings],
   );
-  const explorer = useExplorer(fen, query, true, !!settings.lichessToken);
+  const explorer = useExplorer(fen, query, true, true);
   const { result, status } = explorer;
   const analysis = game.analysis.get(game.currentPly);
   const line = game.moves.slice(0, game.currentPly);
@@ -170,7 +170,7 @@ function Builder({
   }, [query, settings.lichessToken]);
   useEffect(() => {
     const s = stats.current;
-    if (!settings.lichessToken || s.running) return;
+    if (s.running) return;
     const todo = () => s.rep.missingStats().filter((e) => !s.failed.has(e));
     if (!todo().length) return;
     s.running = true;
@@ -292,7 +292,7 @@ function Builder({
 
   // While the next position's counts load, keep the last table on screen (faded) rather than
   // emptying it: auto-play moves twice in a row, which made the table blink.
-  const [table, stale] = useSteady({ rows, columns, selected }, explorer.epd === here || !settings.lichessToken);
+  const [table, stale] = useSteady({ rows, columns, selected }, explorer.epd === here);
 
   const status_ = (() => {
     if (!fromStart) return "The board does not start from the initial position.";
@@ -349,8 +349,7 @@ function Builder({
       const waiting = missing.length - failed;
       const s = (n: number) => `${n} position${n === 1 ? "" : "s"}`;
       let note = "";
-      if (missing.length && !settings.lichessToken) note = ` Log in with Lichess in Settings to get game counts for ${s(missing.length)}.`;
-      else {
+      {
         if (waiting) note += ` Still fetching game counts for ${s(waiting)}; try again in a moment.`;
         if (failed) note += ` Lichess gave no counts for ${s(failed)}.`;
       }

@@ -67,12 +67,12 @@ describe("parseExplorer", () => {
 });
 
 describe("LichessClient", () => {
-  it("sends the request shape and a bearer header, but no User-Agent", async () => {
+  it("sends the request shape, with no Authorization (it breaks the CORS preflight) or User-Agent", async () => {
     const seen: Seen[] = [];
     const client = new LichessClient(() => " tok ", fakeFetch(json(SAMPLE), seen));
     await client.explorer(FEN, { speeds: ["blitz", "rapid"], ratings: [1600, 2000], moves: 20 });
     const { url, headers } = seen[0];
-    expect(headers.Authorization).toBe("Bearer tok");
+    expect(headers.Authorization).toBeUndefined();
     expect(Object.keys(headers).map((k) => k.toLowerCase())).not.toContain("user-agent");
     const parsed = new URL(url);
     expect(parsed.origin + parsed.pathname).toBe("https://explorer.lichess.org/lichess");

@@ -2,8 +2,10 @@
  * Lichess opening-explorer client (port of lichess_api.py): one place for the URL, auth,
  * errors and caching.
  *
- * The explorer (``explorer.lichess.org``) requires an API token and asks clients to wait a
- * minute after a 429. Castling comes back as king-takes-rook UCI (``e1h1``), so moves are
+ * The explorer (``explorer.lichess.org``) asks clients to wait a minute after a 429. It is
+ * called without the login token: from a web page an Authorization header makes the browser
+ * send a CORS preflight, which explorer.lichess.org answers with 404, so the request never goes
+ * out (seen 2026-11-14). Plain requests are allowed cross-origin and answered. Castling comes back as king-takes-rook UCI (``e1h1``), so moves are
  * parsed from SAN. Positions are FEN strings; moves are UCI strings in chess.js's notation
  * (castling as king-two-squares, ``e1g1``).
  *
@@ -201,19 +203,18 @@ export interface LichessClientOptions {
 
 /** Explorer lookups with an LRU cache keyed by position (EPD) and query. */
 export class LichessClient {
-  private readonly tokenProvider: () => string;
   private readonly fetchFn: typeof fetch;
   private readonly timeout: number;
   private readonly cacheSize: number;
   private readonly cache = new Map<string, ExplorerResult>();
 
   constructor(
-    tokenProvider: () => string,
+    // The login token: kept in the signature, but the explorer is called without it (see top).
+    _tokenProvider: () => string,
     // Wrapped so a bare ``fetch`` is never called with the client as ``this`` (Illegal invocation).
     fetchFn: typeof fetch = (input, init) => fetch(input, init),
     options: LichessClientOptions = {},
   ) {
-    this.tokenProvider = tokenProvider;
     this.fetchFn = fetchFn;
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
     this.cacheSize = options.cacheSize ?? 512;
@@ -245,8 +246,6 @@ export class LichessClient {
     const hit = this.cached(fen, query);
     if (hit !== null) return hit;
     const headers: Record<string, string> = { Accept: "application/json" };
-    const token = (this.tokenProvider() || "").trim();
-    if (token) headers.Authorization = `Bearer ${token}`;
     const url = `${EXPLORER_URL}?${new URLSearchParams([["fen", fen], ...queryParams(query)])}`;
 
     const controller = new AbortController();
@@ -264,7 +263,7 @@ export class LichessClient {
         throw new LichessUnavailable(`Could not reach Lichess (${errorText(exc)})`);
       }
       if (response.status === 401 || response.status === 403) {
-        throw new LichessAuthError("Lichess rejected the request: enter a valid API token.");
+        throw new LichessAuthError("Lichess refused the opening explorer request.");
       }
       if (response.status === 429) throw new LichessRateLimited(retryAfter(response.headers));
       if (!response.ok) throw new LichessUnavailable(`Lichess returned HTTP ${response.status}`);

@@ -10,7 +10,7 @@ export function ExplorerPage({ settings, update }: { settings: Settings; update:
   const { game, play } = useGame();
   const fen = game.fen;
   const query = { speeds: settings.explorerSpeeds, ratings: settings.explorerRatings, moves: 15 };
-  const explorer = useExplorer(fen, query, true, !!settings.lichessToken);
+  const explorer = useExplorer(fen, query, true, true);
   const { status } = explorer;
   const analysis = game.analysis.get(game.currentPly);
   // While the next position loads, keep the last table on screen (faded) instead of emptying it.

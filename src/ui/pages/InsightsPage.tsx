@@ -73,15 +73,6 @@ export function InsightsPage({ settings }: { settings: Settings }) {
     </label>
   );
 
-  if (!settings.lichessToken) {
-    return (
-      <section className="panel">
-        <h2>Opening insights</h2>
-        <p className="muted">Insights read the Lichess opening explorer, which needs a Lichess login. Log in on the Settings tab.</p>
-      </section>
-    );
-  }
-
   return (
     <div className="col">
       <section className="panel">

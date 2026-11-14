@@ -29,8 +29,8 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
       <section className="panel">
         <h2>Lichess</h2>
         <p className="small muted" style={{ margin: 0 }}>
-          The opening explorer (Explorer, Insights and repertoire game counts) needs a Lichess account. Logging in gives this
-          page a token that is kept only in this browser and sent only to Lichess.
+          The opening explorer (Explorer, Insights and repertoire game counts) works without logging in. Logging in makes
+          downloading your Lichess games faster; it gives this page a token kept only in this browser and sent only to Lichess.
         </p>
         {settings.lichessToken ? (
           <div className="row">
