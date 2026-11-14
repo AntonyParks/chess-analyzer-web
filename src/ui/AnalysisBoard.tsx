@@ -71,8 +71,8 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
     for (const [uci, ev] of Object.entries(analysis.evals)) {
       if (!uci.startsWith(selected)) continue;
       const to = uci.slice(2, 4);
-      const pov = turn === "w" ? ev.cpWhite : -ev.cpWhite;
-      out[to] = { text: formatCp(pov).replace("+", ""), color: rankColor(analysis.rankMap[uci] ?? 0.5) };
+      // From White's side, like the engine lines: minus means Black is better.
+      out[to] = { text: formatCp(ev.cpWhite), color: rankColor(analysis.rankMap[uci] ?? 0.5) };
     }
     return out;
   }, [selected, analysis, turn]);
