@@ -1,24 +1,27 @@
 /**
- * The repertoire as a zoomable sunburst. The centre is the start position (or the position you
- * zoomed into); each ring is one move further, and each wedge's angle is how often that line
- * comes up in real games. Click a wedge to zoom in and show it on the board; click the centre
- * to zoom back out.
+ * The repertoire as a sunburst. The centre is the start position; each ring is one move further,
+ * and each wedge's angle is how often that line comes up in real games. Rings keep one width, so
+ * deep lines run past the edge of the box: drag to move around, and zoom with the mouse wheel,
+ * a pinch, or the + / − buttons. Click (or tap) a wedge to show its position on the board.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { board, playUci, sanLine } from "../core/chess";
 import type { Repertoire } from "../core/repertoire";
 import { ancestryOf, buildMap, findNode, type MapNode } from "../core/repertoireMap";
 
 const SIZE = 400;
 const C = SIZE / 2;
-const R_IN = 54; // the centre disc
-const R_OUT = 194;
-const RINGS = 7; // rings shown at once
-const ZOOM_MS = 520;
+const R_IN = 52; // the centre disc
+const RING = 22; // every ring is this wide; the 7th ends near the box's edge at the start
 const TAU = Math.PI * 2;
+const MIN_SCALE = 0.35;
+const MAX_SCALE = 10;
+const DRAG_PX = 4; // a press that moves less than this is a click, not a drag
+
+type View = { s: number; x: number; y: number };
+const HOME: View = { s: 1, x: 0, y: 0 };
 
 type Mode = "openings" | "training";
-type Focus = { a0: number; a1: number; depth: number };
 
 export function Sunburst({
   rep,
@@ -38,22 +41,16 @@ export function Sunburst({
   const { root, summary } = useMemo(() => buildMap(rep, coverage), [rep, coverage, version]);
   const dark = useDarkMode();
   const [mode, setMode] = useState<Mode>("openings");
-  const [focusId, setFocusId] = useState("");
   const [hoverId, setHoverId] = useState<string | null>(null);
-  const focusNode = findNode(root, focusId) ?? root;
   // Moves with no alternative (1.e4 in a White repertoire) go into the centre rather than
   // spending a whole ring on one wedge.
-  let centre = focusNode;
+  let centre = root;
   while (centre.children.length === 1 && centre.children[0].children.length) centre = centre.children[0];
-  const view = useAnimatedFocus({ a0: centre.a0, a1: centre.a1, depth: centre.depth });
+  const view = centre;
+  const { vt, svgRef, dragged, zoomBy, reset, onPointerDown } = usePanZoom();
   const hoverFound = hoverId !== null ? findNode(root, hoverId) : null;
-  // Only a wedge on the rings highlights its line (not one that zoomed into the centre).
+  // Only a wedge on the rings highlights its line (not one folded into the centre).
   const hovered = hoverFound && hoverFound.depth > centre.depth ? hoverFound : null;
-
-  // After an edit the zoomed-in wedge may be gone: fall back to the start.
-  useEffect(() => {
-    if (focusId && !findNode(root, focusId)) setFocusId("");
-  }, [root, focusId]);
 
   const trail = useMemo(() => new Set((hovered ? ancestryOf(root, hovered.id) ?? [] : []).map((n) => n.id)), [root, hovered]);
   const now = Date.now() / 1000;
@@ -63,10 +60,9 @@ export function Sunburst({
   const marks: JSX.Element[] = [];
   let boardNode: MapNode | null = null; // the wedge for the board's position, drawn or not
   const span = Math.max(1e-9, view.a1 - view.a0);
-  const radius = (d: number) => R_IN + (R_OUT - R_IN) * Math.pow(Math.max(0, d) / RINGS, 0.88);
+  const radius = (d: number) => R_IN + RING * Math.max(0, d);
   const visit = (n: MapNode) => {
     const d = n.depth - view.depth;
-    if (d > RINGS + 0.001) return;
     const t0 = clamp01((n.a0 - view.a0) / span);
     const t1 = clamp01((n.a1 - view.a0) / span);
     const isHere = n.epd === current && n.kind !== "rare" && n.kind !== "root";
@@ -84,17 +80,12 @@ export function Sunburst({
           fill={fill.base}
           stroke="var(--surface)"
           strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
           opacity={dim ? 0.32 : 1}
-          style={{ cursor: "pointer", transition: "opacity 160ms" }}
+          style={{ transition: "opacity 160ms" }}
           onMouseEnter={() => setHoverId(n.id)}
           onMouseLeave={() => setHoverId((h) => (h === n.id ? null : h))}
-          onClick={() => {
-            if (n.children.length) {
-              setFocusId(n.id);
-              setHoverId(null);
-            }
-            onShow(n.path);
-          }}
+          onClick={() => !dragged.current && onShow(n.path)}
         >
           <title>{describe(n)}</title>
         </path>,
@@ -109,26 +100,36 @@ export function Sunburst({
         const shape = sector(t0, t1, r0, r1);
         marks.push(
           <g key={`${n.id}#here`} pointerEvents="none">
-            <path d={shape} fill="none" stroke="var(--surface)" strokeWidth={6.5} strokeLinejoin="round" />
-            <path d={shape} fill="none" stroke="var(--ink)" strokeWidth={3} strokeLinejoin="round" />
+            <path d={shape} fill="none" stroke="var(--surface)" strokeWidth={6.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            <path d={shape} fill="none" stroke="var(--ink)" strokeWidth={3} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           </g>,
         );
       }
-      // A label when the wedge has room for it, set along the radius.
+      // A label when the wedge has room for it (measured on screen, so zooming in shows more):
+      // along the arc on wide wedges, along the radius on narrow ones.
       const mid = (t0 + t1) / 2;
       const rMid = (r0 + r1) / 2;
       const text = n.kind === "rare" ? "…" : n.joins ? `${n.san} ↪` : n.san;
-      const room = (t1 - t0) * TAU * rMid;
-      if (r1 - r0 >= 11 && room >= 11 && text.length * 6.2 <= r1 - r0 - 4) {
-        const deg = mid * 360;
+      const arc = (t1 - t0) * TAU * rMid * vt.s;
+      const thick = (r1 - r0) * vt.s;
+      const width = text.length * 6.4;
+      const deg = mid * 360;
+      let place: string | null = null;
+      if (thick >= 12 && arc >= width + 8) {
+        const flip = deg > 90 && deg < 270;
+        place = `rotate(${deg} ${C} ${C}) translate(${C} ${C - rMid}) rotate(${flip ? 180 : 0})`;
+      } else if (arc >= 12 && thick >= width + 6) {
         const flip = deg > 180;
+        place = `rotate(${deg - 90} ${C} ${C}) translate(${C + rMid} ${C}) rotate(${flip ? 180 : 0})`;
+      }
+      if (place) {
         labels.push(
           <text
             key={`${n.id}#t`}
-            transform={`rotate(${deg - 90} ${C} ${C}) translate(${C + rMid} ${C}) rotate(${flip ? 180 : 0})`}
+            transform={place}
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize={10.5}
+            fontSize={10.5 / vt.s}
             fontWeight={n.kind === "you" ? 700 : 500}
             fill={fill.ink}
             opacity={hovered && !trail.has(n.id) ? 0.35 : 1}
@@ -145,9 +146,9 @@ export function Sunburst({
 
   // The board is at the centre's position, or at a move folded into the centre.
   let centreHere = false;
-  for (let n: MapNode | undefined = focusNode; n; n = n === centre ? undefined : n.children[0]) if (n.epd === current) centreHere = true;
+  for (let n: MapNode | undefined = root; n; n = n === centre ? undefined : n.children[0]) if (n.epd === current) centreHere = true;
   const boardShown = boardNode as MapNode | null;
-  const centreLine = hovered && hovered !== root && hovered.depth > centre.depth ? hovered : focusNode !== root ? centre : null;
+  const centreLine = hovered;
   const centreMoves = centre.path.length ? sanLine(centre.path.slice(-4), fenBefore(centre.path, 4)) : "";
   const empty = !root.children.length;
 
@@ -170,11 +171,14 @@ export function Sunburst({
           ))}
         </div>
       </div>
+      <div className="sb-stage">
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         role="img"
         aria-label={`Repertoire sunburst: prepared for ${pct(summary.prepared)} of games, gaps ${pct(summary.gaps)}.`}
         onMouseLeave={() => setHoverId(null)}
+        onPointerDown={onPointerDown}
       >
         <defs>
           <pattern id="sb-hatch-gap" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -189,23 +193,14 @@ export function Sunburst({
             <stop offset="100%" stopColor="var(--surface-2)" />
           </radialGradient>
         </defs>
+        <g transform={`translate(${vt.x} ${vt.y}) scale(${vt.s})`}>
         {wedges}
         {labels}
         {marks}
-        <g
-          style={{ cursor: focusNode !== root ? "zoom-out" : "default" }}
-          onClick={() => {
-            if (focusNode === root) return;
-            const up = ancestryOf(root, focusNode.id) ?? [root];
-            // Zoom out to the nearest ancestor with a choice in it (skipping single-move steps).
-            let target = up.length >= 2 ? up[up.length - 2] : root;
-            for (let i = up.length - 2; i > 0 && up[i].children.length === 1; i--) target = up[i - 1];
-            setFocusId(target.id);
-            onShow(target.path);
-          }}
-        >
-          <circle cx={C} cy={C} r={R_IN - 3} fill="url(#sb-centre)" stroke="var(--line)" />
-          {centreHere && <circle cx={C} cy={C} r={R_IN - 3} fill="none" stroke="var(--ink)" strokeWidth={2.2} pointerEvents="none" />}
+        <g onClick={() => !empty && !dragged.current && onShow(centre.path)}>
+          <title>{empty ? "" : "Show this position on the board"}</title>
+          <circle cx={C} cy={C} r={R_IN - 3} fill="url(#sb-centre)" stroke="var(--line)" vectorEffect="non-scaling-stroke" />
+          {centreHere && <circle cx={C} cy={C} r={R_IN - 3} fill="none" stroke="var(--ink)" strokeWidth={2.2} vectorEffect="non-scaling-stroke" pointerEvents="none" />}
           {empty ? (
             <text x={C} y={C} textAnchor="middle" dominantBaseline="central" fontSize={11} fill="var(--muted)">
               No lines yet
@@ -218,16 +213,6 @@ export function Sunburst({
               <text x={C} y={C + 9} textAnchor="middle" fontSize={9.5} fill="var(--muted)">
                 {kindText(centreLine)}
               </text>
-              {centreLine === centre && (
-                <text x={C} y={C + 23} textAnchor="middle" fontSize={9.5} fontWeight={600} fill="var(--ink)">
-                  {centreMoves}
-                </text>
-              )}
-              {focusNode !== root && centreLine === centre && (
-                <text x={C} y={C + 36} textAnchor="middle" fontSize={9} fill="var(--accent)">
-                  ↑ zoom out
-                </text>
-              )}
             </>
           ) : (
             <>
@@ -245,7 +230,20 @@ export function Sunburst({
             </>
           )}
         </g>
+        </g>
       </svg>
+      <div className="sb-zoom" role="group" aria-label="Zoom">
+        <button type="button" onClick={() => zoomBy(1.35)} aria-label="Zoom in" data-tip="Zoom in (or scroll / pinch on the chart)">
+          +
+        </button>
+        <button type="button" onClick={() => zoomBy(1 / 1.35)} aria-label="Zoom out" data-tip="Zoom out">
+          −
+        </button>
+        <button type="button" onClick={reset} aria-label="Reset view" data-tip="Back to the starting view" disabled={vt.s === HOME.s && vt.x === HOME.x && vt.y === HOME.y}>
+          ⟲
+        </button>
+      </div>
+      </div>
       <p className="small sunburst-line" aria-live="polite">
         {hovered && hovered !== root ? (
           <>
@@ -260,7 +258,7 @@ export function Sunburst({
         ) : (
           <span className="muted">
             Wedge size is how often a line comes up in games at your ratings. Point at a wedge to read its line; click it
-            to zoom in and show it on the board.
+            to show it on the board. Drag to move around; scroll or pinch to zoom.
           </span>
         )}
       </p>
@@ -411,32 +409,104 @@ function kindText(n: MapNode): string {
 const pct = (x: number) => (x >= 0.995 || x === 0 ? `${Math.round(x * 100)}%` : x < 0.01 ? `${(x * 100).toFixed(1)}%` : `${Math.round(x * 100)}%`);
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-function useAnimatedFocus(target: Focus): Focus {
-  const [shown, setShown] = useState(target);
-  const from = useRef(target);
-  const frame = useRef(0);
-  const key = `${target.a0}|${target.a1}|${target.depth}`;
+/** Pan (drag) and zoom (wheel, pinch, buttons) for the chart, in viewBox units. */
+function usePanZoom() {
+  const [vt, setVt] = useState<View>(HOME);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const dragged = useRef(false); // the last press moved: its click is not a click
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const travel = useRef(0);
+
+  /** Client pixels to viewBox units. */
+  const toBox = useCallback((cx: number, cy: number) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: C, y: C };
+    const r = svg.getBoundingClientRect();
+    return { x: ((cx - r.left) / r.width) * SIZE, y: ((cy - r.top) / r.height) * SIZE };
+  }, []);
+
+  /** Zoom by ``factor`` keeping the point ``at`` (viewBox units) where it is. */
+  const zoomAt = useCallback((at: { x: number; y: number }, factor: number) => {
+    setVt((v) => {
+      const s = Math.max(MIN_SCALE, Math.min(MAX_SCALE, v.s * factor));
+      const k = s / v.s;
+      return { s, x: at.x - (at.x - v.x) * k, y: at.y - (at.y - v.y) * k };
+    });
+  }, []);
+
+  // The wheel needs a non-passive listener so the page does not scroll while zooming.
   useEffect(() => {
-    const start = performance.now();
-    const a = { ...from.current };
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const step = (t: number) => {
-      const k = reduce ? 1 : Math.min(1, (t - start) / ZOOM_MS);
-      const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-      const next = {
-        a0: a.a0 + (target.a0 - a.a0) * e,
-        a1: a.a1 + (target.a1 - a.a1) * e,
-        depth: a.depth + (target.depth - a.depth) * e,
-      };
-      from.current = next;
-      setShown(next);
-      if (k < 1) frame.current = requestAnimationFrame(step);
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      zoomAt(toBox(e.clientX, e.clientY), Math.exp(-e.deltaY * unit * 0.0016));
     };
-    frame.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-  return shown;
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, [toBox, zoomAt]);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.button !== 0 && e.pointerType === "mouse") return;
+      const map = pointers.current;
+      if (map.size === 0) {
+        dragged.current = false;
+        travel.current = 0;
+      }
+      map.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const move = (ev: PointerEvent) => {
+        const prev = map.get(ev.pointerId);
+        if (!prev) return;
+        const svg = svgRef.current;
+        const unit = svg ? SIZE / svg.getBoundingClientRect().width : 1;
+        if (map.size >= 2) {
+          // Pinch: scale by the change in finger distance, pan by the midpoint's movement.
+          const [a, b] = [...map.entries()];
+          const other = a[0] === ev.pointerId ? b[1] : a[1];
+          const before = Math.hypot(prev.x - other.x, prev.y - other.y);
+          const after = Math.hypot(ev.clientX - other.x, ev.clientY - other.y);
+          const mid = toBox((ev.clientX + other.x) / 2, (ev.clientY + other.y) / 2);
+          map.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+          dragged.current = true;
+          if (before > 0) zoomAt(mid, after / before);
+          setVt((v) => ({ ...v, x: v.x + ((ev.clientX - prev.x) / 2) * unit, y: v.y + ((ev.clientY - prev.y) / 2) * unit }));
+          return;
+        }
+        const dx = ev.clientX - prev.x;
+        const dy = ev.clientY - prev.y;
+        map.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+        travel.current += Math.hypot(dx, dy);
+        if (travel.current < DRAG_PX && !dragged.current) return;
+        dragged.current = true;
+        setVt((v) => ({ ...v, x: v.x + dx * unit, y: v.y + dy * unit }));
+      };
+      const up = (ev: PointerEvent) => {
+        map.delete(ev.pointerId);
+        if (map.size === 0) {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+          window.removeEventListener("pointercancel", up);
+        }
+      };
+      if (map.size === 1) {
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+        window.addEventListener("pointercancel", up);
+      }
+    },
+    [toBox, zoomAt],
+  );
+
+  return {
+    vt,
+    svgRef,
+    dragged,
+    zoomBy: (factor: number) => zoomAt({ x: C, y: C }, factor),
+    reset: () => setVt(HOME),
+    onPointerDown,
+  };
 }
 
 function useDarkMode(): boolean {
