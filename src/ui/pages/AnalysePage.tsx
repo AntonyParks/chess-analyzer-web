@@ -1,6 +1,6 @@
 /** Analyse: move list, engine lines, loading and saving games, board options. */
-import { useRef, useState } from "react";
-import { START_FEN, board as makeBoard, sanLine, turnOf } from "../../core/chess";
+import { useEffect, useRef, useState } from "react";
+import { START_FEN, board as makeBoard, playUci, turnOf } from "../../core/chess";
 import { cpPov, formatCp } from "../../core/evaluation";
 import { GameState } from "../../core/gameState";
 import { useGame } from "../game";
@@ -45,7 +45,8 @@ export function MoveList() {
 }
 
 export function EngineLines({ count = 3 }: { count?: number }) {
-  const { game, play } = useGame();
+  const { game, play, setPreview } = useGame();
+  useEffect(() => () => setPreview(null), [setPreview]); // leaving the page ends any preview
   const analysis = game.analysis.get(game.currentPly);
   const fen = game.fen;
   const turn = turnOf(fen);
@@ -54,17 +55,51 @@ export function EngineLines({ count = 3 }: { count?: number }) {
     .sort((a, b) => cpPov(b[1].cpWhite, turn) - cpPov(a[1].cpWhite, turn))
     .slice(0, count);
   return (
-    <div className="lines">
+    <div className="lines" onMouseLeave={() => setPreview(null)}>
       {top.map(([uci, ev]) => (
         <div key={uci} className="row" style={{ flexWrap: "nowrap" }}>
           <button type="button" className="btn" style={{ minHeight: 26, minWidth: 64 }} onClick={() => play(uci)} data-tip={TIPS.engineLine}>
             {formatCp(ev.cpWhite)}
           </button>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{sanLine([uci, ...ev.pv.slice(0, 8)], fen)}</span>
+          <span className="pv" onMouseLeave={() => setPreview(null)}>
+            {lineSteps([uci, ...ev.pv.slice(0, 8)], fen).map((s, i, all) => (
+              <span key={i}>
+                {s.num && <span className="muted">{s.num}</span>}
+                <button
+                  type="button"
+                  className="pv-move"
+                  onMouseEnter={() => setPreview({ fen: s.fen, lastMove: s.uci })}
+                  onFocus={() => setPreview({ fen: s.fen, lastMove: s.uci })}
+                  onBlur={() => setPreview(null)}
+                  onClick={() => {
+                    setPreview(null);
+                    for (const step of all.slice(0, i + 1)) play(step.uci);
+                  }}
+                  data-tip={TIPS.engineMove}
+                >
+                  {s.san}
+                </button>{" "}
+              </span>
+            ))}
+          </span>
         </div>
       ))}
     </div>
   );
+}
+
+/** Each move of a line with its number label and the position after it. */
+function lineSteps(ucis: readonly string[], fen: string) {
+  const g = makeBoard(fen);
+  const out: { uci: string; san: string; num: string; fen: string }[] = [];
+  for (const uci of ucis) {
+    const white = g.turn() === "w";
+    const n = g.moveNumber();
+    const m = playUci(g, uci);
+    if (!m) break;
+    out.push({ uci, san: m.san, num: white ? `${n}.` : out.length === 0 ? `${n}...` : "", fen: g.fen() });
+  }
+  return out;
 }
 
 export function AnalysePage({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {

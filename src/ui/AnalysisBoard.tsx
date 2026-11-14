@@ -11,7 +11,7 @@ import type { Settings } from "./settings";
 import { TIPS } from "./tips";
 
 export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; extraArrows?: Arrow[] }) {
-  const { game, play, goto, animate, thinking } = useGame();
+  const { game, play, goto, animate, thinking, preview } = useGame();
   const [selected, setSelected] = useState<string | null>(null);
   const fen = game.fen;
   const ply = game.currentPly;
@@ -85,6 +85,9 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
     <div className="col board-col" style={{ "--extras": "118px" } as React.CSSProperties}>
       <div className="board-row">
         <EvalBar cp={cp} flipped={orientation === "b"} />
+        {preview ? (
+          <Board fen={preview.fen} orientation={orientation} lastMove={preview.lastMove} movable="none" />
+        ) : (
         <Board
           fen={fen}
           orientation={orientation}
@@ -98,6 +101,7 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
           labels={labels}
           arrows={arrows}
         />
+        )}
       </div>
       <div className="row">
         <button className="btn" type="button" onClick={() => goto(0)} aria-label="First move" data-tip={TIPS.first}>⏮</button>

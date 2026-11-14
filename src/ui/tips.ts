@@ -19,6 +19,7 @@ export const TIPS = {
   flip: "Turn the board around.",
   depth: "How deep Stockfish searches each position. Deeper is stronger but slower, especially on phones.",
   engineLine: "Play this move. The line shows what Stockfish expects to follow.",
+  engineMove: "Point at a move to see the position after it on the board; click to play the line up to here.",
   evalGraph: "Winning chances over the game (White above the line). Click to jump to that move.",
 
   // Load / save

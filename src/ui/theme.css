@@ -165,6 +165,9 @@ table.data tr.selected { background: var(--surface-2); box-shadow: inset 3px 0 0
 .marker-warn { color: var(--warn); font-weight: 700; }
 .marker-ok { color: #4a7fb5; font-weight: 700; }
 .lines { font-family: var(--mono); font-size: 12px; display: grid; gap: 3px; }
+.lines .pv { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
+.pv-move { font: inherit; color: inherit; background: none; border: 0; padding: 1px 2px; border-radius: 4px; cursor: pointer; }
+.pv-move:hover, .pv-move:focus-visible { background: var(--surface-2); color: var(--accent); outline: none; }
 .feedback { font-weight: 600; min-height: 1.4em; }
 .tree { font-size: 13px; max-height: 320px; overflow: auto; }
 .tree ul { list-style: none; margin: 0; padding-left: 14px; }

@@ -21,6 +21,14 @@ export interface GameApi {
   load: (state: GameState) => void;
   /** Moves were just played (animate) rather than jumped to. */
   animate: boolean;
+  /** A position shown on the board without playing it (hovering a move in an engine line). */
+  preview: Preview | null;
+  setPreview: (p: Preview | null) => void;
+}
+
+export interface Preview {
+  fen: string;
+  lastMove: string | null;
 }
 
 const GameContext = createContext<GameApi | null>(null);
@@ -30,6 +38,7 @@ export function GameProvider({ children, depth, enabled }: { children: ReactNode
   const [tick, setTick] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [thinking, setThinking] = useState(false);
+  const [preview, setPreview] = useState<Preview | null>(null);
   const touch = useCallback(() => setTick((t) => t + 1), []);
   const { main } = useEngines();
 
@@ -56,6 +65,8 @@ export function GameProvider({ children, depth, enabled }: { children: ReactNode
   const fen = game.fen;
   const ply = game.currentPly;
   const version = game.version;
+  // A preview belongs to the position it was taken from.
+  useEffect(() => setPreview(null), [fen, version]);
   useEffect(() => {
     if (!main || !enabled) return;
     const existing = game.analysis.get(ply);
@@ -102,9 +113,9 @@ export function GameProvider({ children, depth, enabled }: { children: ReactNode
   }, [main, enabled, fen, ply, version, depth, game, touch]);
 
   const value = useMemo<GameApi>(
-    () => ({ game: ref.current, touch, tick, thinking, play, goto, load, animate }),
+    () => ({ game: ref.current, touch, tick, thinking, play, goto, load, animate, preview, setPreview }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tick, thinking, animate],
+    [tick, thinking, animate, preview],
   );
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
