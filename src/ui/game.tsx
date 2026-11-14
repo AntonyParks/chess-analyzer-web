@@ -7,6 +7,7 @@ import { board, epd, legalUcis, playUci, turnOf } from "../core/chess";
 import { bestUci, rankMoves } from "../core/evaluation";
 import { GameState, type PlyAnalysis } from "../core/gameState";
 import { Kind } from "../engine/scheduler";
+import type { Arrow } from "./Board";
 import { useEngines } from "./engine";
 
 export interface GameApi {
@@ -38,6 +39,7 @@ export interface Carry {
 export interface Preview {
   fen: string;
   lastMove: string | null;
+  arrows?: Arrow[];
 }
 
 const GameContext = createContext<GameApi | null>(null);

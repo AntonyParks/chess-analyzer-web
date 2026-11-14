@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { START_FEN, board as makeBoard, playUci, turnOf } from "../../core/chess";
 import { cpPov, formatCp } from "../../core/evaluation";
 import { GameState } from "../../core/gameState";
+import { numberedLine } from "../Board";
 import { useGame } from "../game";
 import type { Settings } from "../settings";
 import { TIPS } from "../tips";
@@ -58,7 +59,19 @@ export function EngineLines({ count = 10 }: { count?: number }) {
     <div className="lines" onMouseLeave={() => setPreview(null)}>
       {top.map(([uci, ev]) => (
         <div key={uci} className="row" style={{ flexWrap: "nowrap" }}>
-          <button type="button" className="btn" style={{ minHeight: 26, minWidth: 64 }} onClick={() => play(uci)} data-tip={TIPS.engineLine}>
+          <button
+            type="button"
+            className="btn"
+            style={{ minHeight: 26, minWidth: 64 }}
+            onClick={() => {
+              setPreview(null);
+              play(uci);
+            }}
+            onMouseEnter={() => setPreview({ fen, lastMove: game.lastMove, arrows: numberedLine(fen, [uci, ...ev.pv], turn) })}
+            onFocus={() => setPreview({ fen, lastMove: game.lastMove, arrows: numberedLine(fen, [uci, ...ev.pv], turn) })}
+            onBlur={() => setPreview(null)}
+            data-tip={TIPS.engineLine}
+          >
             {formatCp(ev.cpWhite)}
           </button>
           <span className="pv" onMouseLeave={() => setPreview(null)}>

@@ -23,7 +23,7 @@ import {
 } from "../../core/puzzles";
 import { ChessComClient, ChessComError, TIME_CLASSES, TIME_CLASS_LABELS } from "../../data/chesscom";
 import { fetchUpdates } from "../../data/gameLibrary";
-import { Board, type Arrow } from "../Board";
+import { Board, numberedLine, type Arrow } from "../Board";
 import { useData, type DataApi } from "../data";
 import { useEngines, type Engines } from "../engine";
 import type { Settings } from "../settings";
@@ -419,24 +419,7 @@ function PuzzlePlayer({
     setLine(
       `Engine line: ${sanLine(ucis, afterFen)}. Arrows ${shown > 1 ? `1–${shown}` : "1"} show its first moves in order (green yours, red theirs).`,
     );
-    // The first moves of the line, numbered in order: green for your moves, red for theirs,
-    // fading a little as the line goes on.
-    const arr: Arrow[] = [];
-    let f = afterFen;
-    for (const [i, u] of ucis.slice(0, 4).entries()) {
-      const mine = (f.split(" ")[1] === "w") === puzzle.userWhite;
-      arr.push({
-        from: u.slice(0, 2),
-        to: u.slice(2, 4),
-        color: mine ? "#2e9d5a" : "#c0503a",
-        label: String(i + 1),
-        opacity: 0.85 - i * 0.1,
-      });
-      const n = after(f, u);
-      if (!n) break;
-      f = n;
-    }
-    setArrows(arr);
+    setArrows(numberedLine(afterFen, ucis, puzzle.userWhite ? "w" : "b"));
   };
 
   const onMove = (uci: string): boolean => {

@@ -5,7 +5,7 @@
  * with a red flash, which is how puzzles and training check answers).
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { FILES, legalUcis, squareIndex, squareName } from "../core/chess";
+import { FILES, after, legalUcis, squareIndex, squareName } from "../core/chess";
 import type { Color } from "../core/evaluation";
 import { PIECES } from "./pieces";
 
@@ -17,6 +17,27 @@ export interface Arrow {
   label?: string;
   /** 0..1, default 0.82. */
   opacity?: number;
+}
+
+/**
+ * The first ``max`` moves of a line from ``fen`` as arrows numbered in order: green for
+ * ``mine``'s moves, red for the other side's, fading a little as the line goes on.
+ */
+export function numberedLine(fen: string, ucis: readonly string[], mine: Color, max = 4): Arrow[] {
+  const out: Arrow[] = [];
+  let f: string | null = fen;
+  for (const [i, u] of ucis.slice(0, max).entries()) {
+    if (!f) break;
+    out.push({
+      from: u.slice(0, 2),
+      to: u.slice(2, 4),
+      color: f.split(" ")[1] === mine ? "#2e9d5a" : "#c0503a",
+      label: String(i + 1),
+      opacity: 0.85 - i * 0.1,
+    });
+    f = after(f, u);
+  }
+  return out;
 }
 
 export interface BoardProps {

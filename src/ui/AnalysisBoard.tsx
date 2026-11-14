@@ -91,7 +91,7 @@ export function AnalysisBoard({ settings, extraArrows }: { settings: Settings; e
       <div className="board-row">
         <EvalBar cp={cp} flipped={orientation === "b"} />
         {preview ? (
-          <Board fen={preview.fen} orientation={orientation} lastMove={preview.lastMove} movable="none" />
+          <Board fen={preview.fen} orientation={orientation} lastMove={preview.lastMove} movable="none" arrows={preview.arrows} />
         ) : (
         <Board
           fen={fen}

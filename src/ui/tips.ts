@@ -18,7 +18,7 @@ export const TIPS = {
   bestArrow: "Draw an arrow for Stockfish's best move.",
   flip: "Turn the board around.",
   depth: "How deep Stockfish searches each position. Deeper is stronger but slower, especially on phones.",
-  engineLine: "Play this move. The line shows what Stockfish expects to follow.",
+  engineLine: "Point here to see the line's first moves as numbered arrows (green for the side to move, red for the other); click to play the first move.",
   engineMove: "Point at a move to see the position after it on the board; click to play the line up to here.",
   evalGraph: "Winning chances over the game (White above the line). Click to jump to that move.",
 
