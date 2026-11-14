@@ -1,8 +1,8 @@
 /** Explorer: what Lichess players play from the shown position, with Stockfish's evals. */
 import { RATING_CHOICES, SPEEDS, SPEED_LABELS, percentages } from "../../data/lichess";
-import { turnOf } from "../../core/chess";
+import { epd, turnOf } from "../../core/chess";
 import { useGame } from "../game";
-import { SortTable, explorerColumns, useExplorer } from "../lichess";
+import { SortTable, explorerColumns, useExplorer, useSteady } from "../lichess";
 import type { Settings } from "../settings";
 import { TIPS } from "../tips";
 
@@ -10,8 +10,15 @@ export function ExplorerPage({ settings, update }: { settings: Settings; update:
   const { game, play } = useGame();
   const fen = game.fen;
   const query = { speeds: settings.explorerSpeeds, ratings: settings.explorerRatings, moves: 15 };
-  const { result, status } = useExplorer(fen, query, true, !!settings.lichessToken);
+  const explorer = useExplorer(fen, query, true, !!settings.lichessToken);
+  const { status } = explorer;
   const analysis = game.analysis.get(game.currentPly);
+  // While the next position loads, keep the last table on screen (faded) instead of emptying it.
+  const [view, stale] = useSteady(
+    { result: explorer.result, fen, evals: analysis?.evals, rankMap: analysis?.rankMap },
+    explorer.epd === epd(fen),
+  );
+  const result = view.result;
   const toggle = <T,>(list: T[], v: T, on: boolean) => (on ? [...new Set([...list, v])] : list.filter((x) => x !== v));
 
   return (
@@ -43,7 +50,7 @@ export function ExplorerPage({ settings, update }: { settings: Settings; update:
           ))}
         </div>
         {result && result.total > 0 && (
-          <p className="small" style={{ margin: 0 }}>
+          <p className={`small ${stale ? "stale" : "fresh"}`} style={{ margin: 0 }}>
             {result.opening && <b>{result.opening} · </b>}
             {result.total.toLocaleString()} games · White {percentages(result.white, result.draws, result.black)[0]}% · Draw{" "}
             {percentages(result.white, result.draws, result.black)[1]}% · Black{" "}
@@ -51,16 +58,18 @@ export function ExplorerPage({ settings, update }: { settings: Settings; update:
           </p>
         )}
         {result && result.total === 0 && <p className="small muted">No games for these filters.</p>}
-        {status && <p className="small muted" style={{ margin: 0 }}>{status}</p>}
+        <p className="small muted status-line">{status === "Loading…" ? "" : status}</p>
         {result && result.moves.length > 0 && (
+          <div className={stale ? "stale" : "fresh"}>
           <SortTable
             rows={[...result.moves]}
-            columns={explorerColumns(fen, analysis?.evals, analysis?.rankMap, result.total)}
+            columns={explorerColumns(view.fen, view.evals, view.rankMap, result.total)}
             rowKey={(m) => m.uci}
-            onPick={(m) => play(m.uci)}
+            onPick={(m) => !stale && play(m.uci)}
             sortSpec={turnOf(fen) === "w" ? settings.sortWhite : settings.sortBlack}
             onSortChange={(spec) => update(turnOf(fen) === "w" ? { sortWhite: spec } : { sortBlack: spec })}
           />
+          </div>
         )}
         <p className="small muted" style={{ margin: 0 }}>Click a move to play it. The Eval column fills in as Stockfish analyses the position.</p>
       </section>

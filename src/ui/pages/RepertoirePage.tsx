@@ -25,7 +25,7 @@ import { useData } from "../data";
 import { useEngines } from "../engine";
 import { useGame } from "../game";
 import { Sunburst } from "../Sunburst";
-import { SortTable, explorerColumns, useExplorer, useLichess, type Column } from "../lichess";
+import { SortTable, explorerColumns, useExplorer, useLichess, useSteady, type Column } from "../lichess";
 import type { Settings } from "../settings";
 import { TIPS } from "../tips";
 
@@ -136,7 +136,8 @@ function Builder({
     () => ({ speeds: settings.explorerSpeeds, ratings: settings.repertoireRatings, moves: 20 }),
     [settings.explorerSpeeds, settings.repertoireRatings],
   );
-  const { result, status } = useExplorer(fen, query, true, !!settings.lichessToken);
+  const explorer = useExplorer(fen, query, true, !!settings.lichessToken);
+  const { result, status } = explorer;
   const analysis = game.analysis.get(game.currentPly);
   const line = game.moves.slice(0, game.currentPly);
   const fromStart = epd(game.startFen) === ROOT_EPD;
@@ -287,6 +288,10 @@ function Builder({
     },
   ];
 
+  // While the next position's counts load, keep the last table on screen (faded) rather than
+  // emptying it: auto-play moves twice in a row, which made the table blink.
+  const [table, stale] = useSteady({ rows, columns, selected }, explorer.epd === here || !settings.lichessToken);
+
   const status_ = (() => {
     if (!fromStart) return "The board does not start from the initial position.";
     const size = rep.size();
@@ -426,16 +431,20 @@ function Builder({
           ))}
         </div>
         <p style={{ margin: 0 }}>{status_}</p>
-        {(status || result?.opening) && (
-          <p className="small muted" style={{ margin: 0 }}>
-            {status || `${result?.opening} · ${result?.total.toLocaleString()} Lichess games at these ratings`}
-          </p>
-        )}
-        <SortTable rows={rows} columns={columns} rowKey={(m) => m.uci} onPick={(m) => (setSelected(m.uci), play(m.uci))}
-          selected={selected}
+        <p className={`small muted status-line ${stale ? "stale" : "fresh"}`}>
+          {status && status !== "Loading…"
+            ? status
+            : result?.opening
+              ? `${result.opening} · ${result.total.toLocaleString()} Lichess games at these ratings`
+              : ""}
+        </p>
+        <div className={stale ? "stale" : "fresh"}>
+        <SortTable rows={table.rows} columns={table.columns} rowKey={(m) => m.uci} onPick={(m) => !stale && (setSelected(m.uci), play(m.uci))}
+          selected={table.selected}
           sortSpec={turnOf(fen) === "w" ? settings.sortWhite : settings.sortBlack}
           onSortChange={(spec) => update(turnOf(fen) === "w" ? { sortWhite: spec } : { sortBlack: spec })}
         />
+        </div>
         <div className="row">
           <button className="btn primary" type="button" onClick={() => addLine(false)} data-tip={TIPS.repAdd}>
             Add line to here

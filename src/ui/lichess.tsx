@@ -36,40 +36,55 @@ export interface ExplorerState {
   result: ExplorerResult | null;
   status: string;
   loading: boolean;
+  /** The position this state is about. While a new position loads it still names the old
+   * one, so pages can keep showing the old moves instead of an empty table. */
+  epd: string;
+}
+
+/** ``value`` while ``ready``; otherwise the last value that was ready (and true for "stale"). */
+export function useSteady<T>(value: T, ready: boolean): [T, boolean] {
+  const held = useRef<{ v: T } | null>(null);
+  if (ready || held.current === null) {
+    held.current = { v: value };
+    return [value, false];
+  }
+  return [held.current.v, true];
 }
 
 /** Explorer stats for ``fen``, refetched when the position or query changes (debounced). */
 export function useExplorer(fen: string, query: ExplorerQuery, enabled: boolean, hasToken: boolean): ExplorerState {
   const client = useLichess();
-  const [state, setState] = useState<ExplorerState>({ result: null, status: "", loading: false });
-  const key = `${epd(fen)}|${JSON.stringify(query)}`;
+  const [state, setState] = useState<ExplorerState>({ result: null, status: "", loading: false, epd: "" });
+  const here = epd(fen);
+  const key = `${here}|${JSON.stringify(query)}`;
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     if (!enabled) return;
     if (!hasToken) {
-      setState({ result: null, status: "Log in with Lichess in Settings to see game counts.", loading: false });
+      setState({ result: null, status: "Log in with Lichess in Settings to see game counts.", loading: false, epd: here });
       return;
     }
     const cached = client.cached(fen, query);
     if (cached) {
-      setState({ result: cached, status: "", loading: false });
+      setState({ result: cached, status: "", loading: false, epd: here });
       return;
     }
     let live = true;
-    setState((s) => ({ result: s.result && s.result.epd === epd(fen) ? s.result : null, status: "Loading…", loading: true }));
+    // Keep what is shown (and the position it is for) until the new counts arrive.
+    setState((s) => ({ ...s, status: "Loading…", loading: true }));
     const timer = setTimeout(async () => {
       try {
         const result = await client.explorer(fen, query);
-        if (live) setState({ result, status: "", loading: false });
+        if (live) setState({ result, status: "", loading: false, epd: here });
       } catch (err) {
         if (!live) return;
         if (err instanceof LichessAuthError) {
-          setState({ result: null, status: "Lichess rejected the login: log in again in Settings.", loading: false });
+          setState({ result: null, status: "Lichess rejected the login: log in again in Settings.", loading: false, epd: here });
         } else if (err instanceof LichessRateLimited) {
-          setState({ result: null, status: `Lichess asked us to wait ${Math.round(err.retryAfter)} s; retrying then.`, loading: true });
+          setState({ result: null, status: `Lichess asked us to wait ${Math.round(err.retryAfter)} s; retrying then.`, loading: true, epd: here });
           setTimeout(() => live && setRetry((r) => r + 1), err.retryAfter * 1000);
         } else {
-          setState({ result: null, status: `${(err as Error).message}.`, loading: false });
+          setState({ result: null, status: `${(err as Error).message}.`, loading: false, epd: here });
         }
       }
     }, 150);
