@@ -10,6 +10,7 @@ import type { Settings } from "../settings";
 import { MoveList } from "./AnalysePage";
 import { GameList } from "./GameList";
 import { TIPS } from "../tips";
+import { useYourRating } from "../yourRating";
 
 const MARKER_CLASS: Record<string, string> = { "??": "marker-bad", "?": "marker-bad", "?!": "marker-warn" };
 
@@ -53,7 +54,8 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
   const you = userSide(game.headers, [settings.chesscomUsername, settings.lichessUsername]);
   const [showBoth, setShowBoth] = useState(false);
   const shownEntries = you && !showBoth ? entries.filter((e) => e.isWhite === (you.color === "w")) : entries;
-  const ratings = useMemo(() => gameRatings(game.headers, settings.humanRating), [game, settings.humanRating]);
+  const yourRating = useYourRating(settings);
+  const ratings = useMemo(() => gameRatings(game.headers, yourRating), [game, yourRating]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const play = useMemo(() => expectedPlay(plyData(game), ratings), [tick, game, ratings]);
   const counts = (white: boolean) => {

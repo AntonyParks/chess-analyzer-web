@@ -6,6 +6,7 @@ import { GameState } from "../../core/gameState";
 import { findChance, findDepth, goodMoves, humanEval, toLichess } from "../../core/humanModel";
 import { numberedLine } from "../Board";
 import { useDepthTrace } from "../humanEval";
+import { useYourRating } from "../yourRating";
 import { useGame } from "../game";
 import type { Settings } from "../settings";
 import { TIPS } from "../tips";
@@ -150,6 +151,7 @@ function lineSteps(ucis: readonly string[], fen: string) {
 
 export function AnalysePage({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {
   const { game, load } = useGame();
+  const rating = useYourRating(settings);
   const [text, setText] = useState("");
   const [message, setMessage] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -231,7 +233,7 @@ export function AnalysePage({ settings, update }: { settings: Settings; update: 
             style={{ width: 64 }}
           />
         </div>
-        <HumanEval rating={settings.humanRating} depth={settings.depth} />
+        <HumanEval rating={rating} depth={settings.depth} />
         <EngineLines />
         <p className="small muted" style={{ margin: 0 }}>
           Tap a piece to see the evaluation of each of its moves. Heatmap colours run from red (worst) to green (best), and a gold star marks the piece with the best move. Point at a move in a line to see it on the board.

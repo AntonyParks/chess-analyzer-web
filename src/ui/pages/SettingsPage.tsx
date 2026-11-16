@@ -2,7 +2,10 @@
 import { useRef, useState } from "react";
 import { logout, startLogin } from "../../data/lichessAuth";
 import { useData } from "../data";
+import { CHESSCOM_TO_LICHESS } from "../../core/humanModel";
+import { TIME_CLASS_LABELS } from "../../data/chesscom";
 import type { Settings } from "../settings";
+import { useFoundRating } from "../yourRating";
 import { TIPS } from "../tips";
 
 export function redirectUri(): string {
@@ -15,6 +18,8 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
   const data = useData();
   const fileRef = useRef<HTMLInputElement>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const found = useFoundRating(settings);
+  const auto = settings.humanRatingAuto && found !== null;
 
   const login = async () => {
     try {
@@ -130,20 +135,47 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
         </p>
         <div className="row">
           <label htmlFor="set-rating" data-tip={TIPS.humanRating}>Your rating (chess.com)</label>
-          <input
-            id="set-rating"
-            type="number"
-            min={400}
-            max={2500}
-            step={50}
-            key={settings.humanRating}
-            defaultValue={settings.humanRating}
-            onBlur={(e) => update({ humanRating: clampRating(Number(e.target.value)) })}
-            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-            style={{ width: 80 }}
-          />
+          {auto ? (
+            <b id="set-rating">{found!.rating}</b>
+          ) : (
+            <input
+              id="set-rating"
+              type="number"
+              min={400}
+              max={2500}
+              step={50}
+              key={settings.humanRating}
+              defaultValue={settings.humanRating}
+              onBlur={(e) => update({ humanRating: clampRating(Number(e.target.value)) })}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              style={{ width: 80 }}
+            />
+          )}
+          <label className="chip" data-tip={TIPS.humanRatingAuto}>
+            <input type="checkbox" checked={settings.humanRatingAuto} onChange={(e) => update({ humanRatingAuto: e.target.checked })} />
+            From my games
+          </label>
+          {settings.humanRatingAuto && (
+            <select
+              aria-label="Time control for your rating"
+              value={settings.humanRatingClass}
+              onChange={(e) => update({ humanRatingClass: e.target.value })}
+            >
+              <option value="latest">Latest game</option>
+              {Object.entries(TIME_CLASS_LABELS).map(([k, label]) => (
+                <option key={k} value={k}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <p className="small muted" style={{ margin: 0 }}>
+          {auto
+            ? `Your ${TIME_CLASS_LABELS[found!.timeClass]?.toLowerCase() ?? found!.timeClass} rating from your ${found!.site} game on ${new Date(found!.endTime * 1000).toLocaleDateString()}${found!.site === "Lichess" ? `, converted to chess.com's scale (minus ${CHESSCOM_TO_LICHESS})` : ""}; it updates as you download new games. `
+            : settings.humanRatingAuto
+              ? "No downloaded game of yours in that time control yet, so the number above is used. Add your username above and download your games on the Review tab. "
+              : ""}
           Used for the "at your level" score on the Analyse tab, and for games without ratings in Review's expected play.
         </p>
       </section>

@@ -13,6 +13,10 @@ export interface Settings {
   lichessUsername: string;
   /** Your chess.com rating, for "at your level" evals and expected play. */
   humanRating: number;
+  /** Take your rating from your most recent downloaded game instead of ``humanRating``. */
+  humanRatingAuto: boolean;
+  /** Which games to take it from: a time class, or "latest" for whichever you played last. */
+  humanRatingClass: string;
   puzzleTimeClasses: string[];
   puzzleDepth: number;
   puzzleMarkers: string[];
@@ -43,6 +47,8 @@ export const DEFAULTS: Settings = {
   chesscomUsername: "",
   lichessUsername: "",
   humanRating: 1000,
+  humanRatingAuto: true,
+  humanRatingClass: "rapid",
   puzzleTimeClasses: ["bullet", "blitz", "rapid", "daily"],
   puzzleDepth: 10,
   puzzleMarkers: ["??", "?", "?!"],

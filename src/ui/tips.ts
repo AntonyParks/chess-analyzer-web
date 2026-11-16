@@ -65,6 +65,7 @@ export const TIPS = {
   reviewBothSides: "Also list your opponent's flagged moves. Your side is found from your usernames in Settings.",
   humanRating:
     "Your chess.com rating. The \"at your level\" score blends Stockfish's view at each depth by how deep players of this rating tend to see (measured on Lichess games).",
+  humanRatingAuto: "Take your rating from your most recent downloaded game in the chosen time control, so it follows your rating as you play.",
   humanEval:
     "The score as a player of your rating would likely see it: Stockfish's score at each depth, weighted by how often players at your level see that deep. The true score is the engine's deepest one.",
   bestFound: "How often players at your level find a good move in positions like this, judged by how deep Stockfish must search before it settles on one.",
