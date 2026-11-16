@@ -52,6 +52,7 @@ export function GameList({ settings, update }: { settings: Settings; update: (p:
   const [site, setSite] = useState<"all" | Site>("all");
   const [colour, setColour] = useState<"any" | "w" | "b">("any");
   const [result, setResult] = useState<"any" | Outcome>("any");
+  const [timeClass, setTimeClass] = useState("any");
   const [search, setSearch] = useState("");
   const [shown, setShown] = useState(PAGE);
   const [picked, setPicked] = useState<string | null>(null);
@@ -74,9 +75,10 @@ export function GameList({ settings, update }: { settings: Settings; update: (p:
         (site === "all" || r.site === site) &&
         (colour === "any" || r.game.userColor === colour) &&
         (result === "any" || r.outcome === result) &&
+        (timeClass === "any" || r.game.timeClass === timeClass) &&
         (!q || r.game.opponent.toLowerCase().includes(q) || r.opening.toLowerCase().includes(q)),
     );
-  }, [all, site, colour, result, search]);
+  }, [all, site, colour, result, timeClass, search]);
 
   const download = async (which: Site) => {
     const name = (which === "chess.com" ? chesscom : lichess).trim();
@@ -164,6 +166,7 @@ export function GameList({ settings, update }: { settings: Settings; update: (p:
   }, [rows, sortSpec]);
 
   const sites = new Set(all.map((r) => r.site));
+  const timeClasses = Object.keys(TIME_CLASS_LABELS).filter((tc) => all.some((r) => r.game.timeClass === tc));
   return (
     <section className="panel">
       <h2>Your games</h2>
@@ -219,6 +222,23 @@ export function GameList({ settings, update }: { settings: Settings; update: (p:
               <option value="Drew">Drew</option>
               <option value="Lost">Lost</option>
             </select>
+            {timeClasses.length > 1 && (
+              <select
+                aria-label="Time control"
+                value={timeClass}
+                onChange={(e) => {
+                  setTimeClass(e.target.value);
+                  setShown(PAGE);
+                }}
+              >
+                <option value="any">Any time control</option>
+                {timeClasses.map((tc) => (
+                  <option key={tc} value={tc}>
+                    {TIME_CLASS_LABELS[tc]}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               className="grow"
               type="search"
