@@ -41,7 +41,16 @@ function openingOf(pgn: string): string {
     .replace(/-/g, " ");
 }
 
-export function GameList({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {
+export function GameList({
+  settings,
+  update,
+  onOpen,
+}: {
+  settings: Settings;
+  update: (p: Partial<Settings>) => void;
+  /** Called after a game from the list is loaded on the board. */
+  onOpen?: () => void;
+}) {
   const data = useData();
   const { load } = useGame();
   const [chesscom, setChesscom] = useState(settings.chesscomUsername);
@@ -118,6 +127,7 @@ export function GameList({ settings, update }: { settings: Settings; update: (p:
     try {
       load(GameState.fromPgn(r.game.pgn));
       setPicked(r.game.url);
+      onOpen?.();
       update({ flip: r.game.userColor === "b" });
     } catch (err) {
       setNote({ text: `Could not read that game: ${(err as Error).message}`, bad: true });
@@ -252,8 +262,8 @@ export function GameList({ settings, update }: { settings: Settings; update: (p:
             />
           </div>
           <p className="small muted" style={{ margin: 0 }}>
-            {rows.length === all.length ? `${all.length} games` : `${rows.length} of ${all.length} games`}. Click one to load it, then
-            press Analyse game.
+            {rows.length === all.length ? `${all.length} games` : `${rows.length} of ${all.length} games`}. Click one to load and analyse
+            it.
           </p>
           <SortTable
             rows={sorted.slice(0, shown)}

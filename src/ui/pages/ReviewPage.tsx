@@ -49,6 +49,23 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
     runner.current?.onStateChanged();
   }, [game.version]);
 
+  const startRun = () => {
+    runner.current?.cancel(); // a run on the previous game (a new game can share its version number)
+    setFinished(null);
+    if (runner.current?.start()) setProgress([0, gameRef.current.moves.length + 1]);
+    else setFinished(true);
+  };
+
+  // A game picked from the list is analysed straight away, once it is on the board (the
+  // effect above has already cancelled any run on the previous game).
+  const [autoStart, setAutoStart] = useState(false);
+  useEffect(() => {
+    if (!autoStart) return;
+    setAutoStart(false);
+    if (gameRef.current.moves.length) startRun();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, game.version]);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const entries = useMemo(() => buildReview(game), [tick, game]);
   const you = userSide(game.headers, [settings.chesscomUsername, settings.lichessUsername]);
@@ -90,11 +107,7 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
             type="button"
             disabled={!main || running || !game.moves.length}
             data-tip={TIPS.reviewRun}
-            onClick={() => {
-              setFinished(null);
-              if (runner.current?.start()) setProgress([0, game.moves.length + 1]);
-              else setFinished(true);
-            }}
+            onClick={startRun}
           >
             {running ? "Analysing…" : "Analyse game"}
           </button>
@@ -182,7 +195,7 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
         <h2>Moves</h2>
         <MoveList />
       </section>
-      <GameList settings={settings} update={update} />
+      <GameList settings={settings} update={update} onOpen={() => setAutoStart(true)} />
     </div>
   );
 }
