@@ -17,6 +17,8 @@ export interface PvInfo {
 
 export interface SearchOutcome {
   lines: Map<number, PvInfo>; // multipv index -> deepest info seen
+  /** The main line (multipv 1) at each finished depth, shallowest first. */
+  byDepth: PvInfo[];
   bestmove: string | null;
   aborted: boolean;
 }
@@ -61,6 +63,7 @@ export class UciSession {
   private searching: {
     resolve: (o: SearchOutcome) => void;
     lines: Map<number, PvInfo>;
+    byDepth: Map<number, PvInfo>;
     aborted: boolean;
   } | null = null;
   private readyWaiters: (() => void)[] = [];
@@ -96,12 +99,14 @@ export class UciSession {
     if (info) {
       const prev = s.lines.get(info.multipv);
       if (!prev || info.depth >= prev.depth) s.lines.set(info.multipv, info);
+      if (info.multipv === 1 && info.pv.length) s.byDepth.set(info.depth, info);
       return;
     }
     if (line.startsWith("bestmove")) {
       const best = line.split(/\s+/)[1] ?? null;
       this.searching = null;
-      s.resolve({ lines: s.lines, bestmove: best === "(none)" ? null : best, aborted: s.aborted });
+      const byDepth = [...s.byDepth.values()].sort((a, b) => a.depth - b.depth);
+      s.resolve({ lines: s.lines, byDepth, bestmove: best === "(none)" ? null : best, aborted: s.aborted });
     }
   }
 
@@ -136,7 +141,7 @@ export class UciSession {
     await this.setOption("MultiPV", opts.multipv ?? 1);
     await this.isReady();
     return new Promise((resolve) => {
-      this.searching = { resolve, lines: new Map(), aborted: false };
+      this.searching = { resolve, lines: new Map(), byDepth: new Map(), aborted: false };
       this.engine.send(`position fen ${fen}`);
       const sm = opts.searchmoves?.length ? ` searchmoves ${opts.searchmoves.join(" ")}` : "";
       this.engine.send(`go depth ${depth}${sm}`);

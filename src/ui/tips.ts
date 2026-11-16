@@ -61,7 +61,14 @@ export const TIPS = {
 
   // Review
   reviewDepth: "How deep Stockfish analyses each position of the game. Higher is more accurate but slower.",
-  reviewRun: "Analyse every position of the game, then list the flagged moves.",
+  reviewRun: "Analyse every position of the game, then list the flagged moves and each side's expected play.",
+  humanRating:
+    "Your chess.com rating. The \"at your level\" score blends Stockfish's view at each depth by how deep players of this rating tend to see (measured on Lichess games).",
+  humanEval:
+    "The score as a player of your rating would likely see it: Stockfish's score at each depth, weighted by how often players at your level see that deep. The true score is the engine's deepest one.",
+  bestFound: "How often players at your level find a good move in positions like this, judged by how deep Stockfish must search before it settles on one.",
+  expectedPlay:
+    "Good moves (within 2% expected score of the best) played, against how many a player of that rating would be expected to play in these positions. Leaves out the first 8 plies and decided positions.",
   reviewStop: "Stop the analysis; positions already analysed are kept.",
   reviewEntry: "Jump to the position before this move.",
 

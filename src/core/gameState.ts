@@ -4,6 +4,7 @@
  */
 import { Chess } from "chess.js";
 import { START_FEN, board, playUci, turnOf } from "./chess";
+import type { TracePoint } from "../engine/scheduler";
 import { type Color, MATE_SCORE_CP, type MoveEval, classify, other, winDrop } from "./evaluation";
 
 /** Engine results for the position reached after ``ply`` moves. */
@@ -21,6 +22,8 @@ export class GameState {
   currentPly = 0;
   headers: Record<string, string> = {};
   analysis = new Map<number, PlyAnalysis>();
+  /** Depth traces (a search from a cleared hash) of the position after ``ply`` moves, for expected play. */
+  traces = new Map<number, { depth: number; trace: TracePoint[] }>();
   version = 0; // bumps whenever the move list changes
   private fenCache = new Map<number, string>();
 
@@ -34,6 +37,7 @@ export class GameState {
     s.currentPly = this.currentPly;
     s.headers = { ...this.headers };
     s.analysis = new Map(this.analysis);
+    s.traces = new Map(this.traces);
     s.version = this.version;
     s.fenCache = this.fenCache;
     return s;
@@ -77,6 +81,7 @@ export class GameState {
   push(uci: string): void {
     this.moves.splice(this.currentPly);
     for (const p of [...this.analysis.keys()]) if (p > this.currentPly) this.analysis.delete(p);
+    for (const p of [...this.traces.keys()]) if (p > this.currentPly) this.traces.delete(p);
     this.moves.push(uci);
     this.currentPly += 1;
     this.changed();
@@ -97,6 +102,7 @@ export class GameState {
     this.moves = [...moves];
     this.headers = { ...headers };
     this.analysis = new Map();
+    this.traces = new Map();
     this.changed();
   }
 

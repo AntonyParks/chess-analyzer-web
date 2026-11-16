@@ -8,6 +8,7 @@
 import { board, epd, legalUcis, playUci, turnOf } from "./chess";
 import { bestUci, cpDrop, cpPov, rankMoves, winChance, winDrop } from "./evaluation";
 import type { GameState } from "./gameState";
+import { OPENING_PLIES } from "./humanModel";
 import { explainMove } from "./moveExplain";
 import { type EngineScheduler, type EvalResult, Kind } from "../engine/scheduler";
 
@@ -15,6 +16,11 @@ export const BETTER_MOVE_MIN_GAIN = 0.01; // winning-chance gain before an alter
 
 export interface GameReviewRunnerOptions {
   scheduler: EngineScheduler;
+  /**
+   * Engine for the depth traces behind "expected play" (searches from a cleared hash, so a
+   * second engine keeps the main one's hash warm). Without it, no traces are run.
+   */
+  traceScheduler?: () => EngineScheduler;
   stateProvider: () => GameState;
   depthProvider: () => number;
   onProgress: (done: number, total: number) => void;
@@ -34,6 +40,8 @@ export class GameReviewRunner {
   private version = -1;
   private depth = 0;
   private pending = new Map<number, number>(); // ply -> scheduler request id
+  private pendingTraces = new Map<number, number>(); // ply -> trace request id
+  private traceEngine: EngineScheduler | null = null;
   private total = 0;
 
   constructor(opts: GameReviewRunnerOptions) {
@@ -82,16 +90,66 @@ export class GameReviewRunner {
       });
       if (this.pending.has(ply)) this.pending.set(ply, id);
     }
-    this._running = this.pending.size > 0;
-    this.opts.onProgress(this.total - this.pending.size, this.total);
+    this.pendingTraces = new Map();
+    this.traceEngine = this.opts.traceScheduler?.() ?? null;
+    if (this.traceEngine) {
+      for (let ply = OPENING_PLIES; ply < state.moves.length; ply++) {
+        const done = state.traces.get(ply);
+        if (done && done.depth === this.depth) continue;
+        const fen = state.fenAt(ply);
+        if (legalUcis(fen).length < 2) continue;
+        this.pendingTraces.set(ply, -1);
+        const id = this.traceEngine.submit({
+          kind: Kind.BATCH,
+          fen,
+          moves: [],
+          depth: this.depth,
+          trace: true,
+          tag: ply,
+          onDone: (r) => this.onTrace(r),
+        });
+        if (this.pendingTraces.has(ply)) this.pendingTraces.set(ply, id);
+      }
+      this.total += this.pendingTraces.size;
+    }
+    this._running = this.pending.size + this.pendingTraces.size > 0;
+    this.report();
     if (!this._running) this.opts.onFinished(true);
     return true;
+  }
+
+  private report(): void {
+    this.opts.onProgress(this.total - this.pending.size - this.pendingTraces.size, this.total);
+  }
+
+  private maybeFinish(): void {
+    this.report();
+    if (!this.pending.size && !this.pendingTraces.size) {
+      this._running = false;
+      this.opts.onFinished(true);
+    }
+  }
+
+  private onTrace(result: EvalResult): void {
+    const ply = result.tag as number;
+    if (!this._running || !this.pendingTraces.has(ply)) return;
+    const state = this.opts.stateProvider();
+    if (state.version !== this.version) {
+      this.cancel();
+      return;
+    }
+    if (result.epd !== epd(state.fenAt(ply))) return;
+    if (result.complete && result.trace) state.traces.set(ply, { depth: this.depth, trace: result.trace });
+    this.pendingTraces.delete(ply);
+    this.maybeFinish();
   }
 
   cancel(): void {
     if (!this._running) return;
     for (const id of this.pending.values()) if (id >= 0) this.opts.scheduler.cancel(id);
+    for (const id of this.pendingTraces.values()) if (id >= 0) this.traceEngine?.cancel(id);
     this.pending.clear();
+    this.pendingTraces.clear();
     this._running = false;
     this.opts.onFinished(false);
   }
@@ -122,11 +180,7 @@ export class GameReviewRunner {
       depth: this.depth,
     });
     this.pending.delete(ply);
-    this.opts.onProgress(this.total - this.pending.size, this.total);
-    if (!this.pending.size) {
-      this._running = false;
-      this.opts.onFinished(true);
-    }
+    this.maybeFinish();
   }
 }
 

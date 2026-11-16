@@ -1,5 +1,8 @@
 /** Review: analyse every move of the game, then list the inaccuracies, mistakes and blunders. */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { legalUcis } from "../../core/chess";
+import { CHESSCOM_TO_LICHESS, type ExpectedPlay, type PlyData, expectedPlay, gameRatings } from "../../core/humanModel";
+import type { GameState } from "../../core/gameState";
 import { GameReviewRunner, buildReview } from "../../core/review";
 import { useEngines } from "../engine";
 import { useGame } from "../game";
@@ -11,7 +14,7 @@ import { TIPS } from "../tips";
 const MARKER_CLASS: Record<string, string> = { "??": "marker-bad", "?": "marker-bad", "?!": "marker-warn" };
 
 export function ReviewPage({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {
-  const { main } = useEngines();
+  const { main, ladder } = useEngines();
   const { game, goto, touch, tick } = useGame();
   const [depth, setDepth] = useState(12);
   const [progress, setProgress] = useState<[number, number] | null>(null);
@@ -24,6 +27,7 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
     if (!main) return;
     runner.current = new GameReviewRunner({
       scheduler: main,
+      traceScheduler: ladder,
       stateProvider: () => gameRef.current,
       depthProvider: () => depth,
       onProgress: (done, total) => {
@@ -37,7 +41,7 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
       },
     });
     return () => runner.current?.cancel();
-  }, [main, depth, touch]);
+  }, [main, ladder, depth, touch]);
 
   // Any change to the move list cancels a run (the runner checks the version).
   useEffect(() => {
@@ -46,6 +50,9 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const entries = useMemo(() => buildReview(game), [tick, game]);
+  const ratings = useMemo(() => gameRatings(game.headers, settings.humanRating), [game, settings.humanRating]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const play = useMemo(() => expectedPlay(plyData(game), ratings), [tick, game, ratings]);
   const counts = (white: boolean) => {
     const c: Record<string, number> = { "?!": 0, "?": 0, "??": 0 };
     for (const e of entries) if (e.isWhite === white && e.marker in c) c[e.marker] += 1;
@@ -112,6 +119,7 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
             })}
           </div>
         )}
+        {play.w.moves + play.b.moves > 0 && <ExpectedPlayRow play={play} ratings={ratings} headers={game.headers} />}
         {game.moves.length > 0 && analysed < game.moves.length + 1 && !running && (
           <p className="small muted" style={{ margin: 0 }}>
             {analysed} of {game.moves.length + 1} positions analysed. Press Analyse game for a full review.
@@ -139,6 +147,13 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
                   </>
                 )}
                 <span className="muted small"> · {(e.winDrop * 50).toFixed(0)} points of win chance lost</span>
+                {play.moves.has(e.ply - 1) && (
+                  <span className="muted small">
+                    {" "}
+                    · a good move here is found by about {Math.round(play.moves.get(e.ply - 1)!.chance * 100)}% of players at
+                    this level
+                  </span>
+                )}
                 {e.explanation && <div className="small muted">{e.explanation}</div>}
               </button>
             ))}
@@ -150,6 +165,47 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
         <MoveList />
       </section>
       <GameList settings={settings} update={update} />
+    </div>
+  );
+}
+
+function plyData(game: GameState): PlyData[] {
+  return game.moves.map((played, ply) => {
+    const fen = game.fenAt(ply);
+    const a = game.analysis.get(ply);
+    return {
+      fen,
+      played,
+      legalCount: legalUcis(fen).length,
+      evals: a?.complete ? a.evals : undefined,
+      trace: game.traces.get(ply)?.trace,
+    };
+  });
+}
+
+function ExpectedPlayRow({ play, ratings, headers }: { play: ExpectedPlay; ratings: Record<"w" | "b", number>; headers: Record<string, string> }) {
+  const lichessSite = /lichess/i.test(headers.Site ?? "");
+  const shown = (c: "w" | "b") => {
+    const raw = Number(c === "w" ? headers.WhiteElo : headers.BlackElo);
+    return Number.isFinite(raw) && raw > 0 ? `${raw}${lichessSite ? " Lichess" : ""}` : `${ratings[c] - CHESSCOM_TO_LICHESS} (your setting)`;
+  };
+  return (
+    <div className="row small" data-tip={TIPS.expectedPlay}>
+      {(["w", "b"] as const).map((c) => {
+        const s = play[c];
+        if (!s.moves) return <span key={c} className="grow" />;
+        const diff = s.found - s.expected;
+        return (
+          <span key={c} className="grow">
+            <b>{c === "w" ? "White" : "Black"}</b> ({shown(c)}): {s.found} good moves of {s.moves}, expected{" "}
+            {s.expected.toFixed(1)}{" "}
+            <span className={diff >= 0 ? "good" : "bad"}>
+              ({diff >= 0 ? "+" : ""}
+              {diff.toFixed(1)})
+            </span>
+          </span>
+        );
+      })}
     </div>
   );
 }

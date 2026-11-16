@@ -23,6 +23,13 @@ export enum Kind {
   IDLE = 3,
 }
 
+/** The engine's choice and score after one depth of a search from a cleared hash. */
+export interface TracePoint {
+  depth: number;
+  best: string; // UCI
+  cpWhite: number;
+}
+
 export interface EvalResult {
   id: number;
   kind: Kind;
@@ -30,6 +37,8 @@ export interface EvalResult {
   evals: Record<string, MoveEval>;
   complete: boolean;
   depth: number;
+  /** ``trace`` requests: the main line at each depth, shallowest first. */
+  trace?: TracePoint[];
   tag?: unknown;
 }
 
@@ -42,6 +51,11 @@ export interface EvalRequest {
   /** MultiPV only: report each finished depth from this one up (progressive heatmap). */
   fromDepth?: number;
   fresh?: boolean; // clear the hash before each search (the puzzle lookahead ladder)
+  /**
+   * Search the position itself once from a cleared hash and report the main line at every depth
+   * (``EvalResult.trace``; ``moves`` is ignored). Used for "how deep must you look" measures.
+   */
+  trace?: boolean;
   tag?: unknown;
   onDone: (r: EvalResult) => void;
   onProgress?: (r: EvalResult) => void;
@@ -51,6 +65,7 @@ interface Pending {
   id: number;
   req: EvalRequest;
   results: Record<string, MoveEval>;
+  trace?: TracePoint[];
   interrupted: boolean;
 }
 
@@ -68,6 +83,7 @@ export class EngineScheduler {
   private running: Pending | null = null;
   private loop: Promise<void> | null = null;
   private cache = new Map<string, MoveEval>();
+  private traces = new Map<string, TracePoint[]>();
   private dead = false;
 
   constructor(
@@ -176,7 +192,11 @@ export class EngineScheduler {
       if (this.cancelled.has(p.id)) continue;
       this.running = p;
       try {
-        const finished = p.req.multipv ? await this.runMultiPv(p) : await this.runPerMove(p);
+        const finished = p.req.trace
+          ? await this.runTrace(p)
+          : p.req.multipv
+            ? await this.runMultiPv(p)
+            : await this.runPerMove(p);
         if (finished && !this.cancelled.has(p.id)) this.finish(p, true);
         else if (!finished && !this.cancelled.has(p.id)) this.requeue(p);
       } catch (err) {
@@ -196,6 +216,7 @@ export class EngineScheduler {
       evals: { ...p.results },
       complete,
       depth,
+      ...(p.trace ? { trace: p.trace } : {}),
       tag: p.req.tag,
     };
   }
@@ -238,6 +259,28 @@ export class EngineScheduler {
       p.results[uci] = ev;
       req.onProgress?.(this.result(p, false, req.depth));
     }
+    return true;
+  }
+
+  private async runTrace(p: Pending): Promise<boolean> {
+    const { req } = p;
+    const key = `${epd(req.fen)}|${req.depth}`;
+    const cached = this.traces.get(key);
+    if (cached) {
+      p.trace = cached;
+      return true;
+    }
+    if (terminalEval(req.fen)) {
+      p.trace = [];
+      return true;
+    }
+    await this.session.newGame();
+    const out = await this.session.search(req.fen, req.depth);
+    if (out.aborted || p.interrupted) return this.cancelled.has(p.id);
+    const mover = turnOf(req.fen);
+    p.trace = out.byDepth.map((i) => ({ depth: i.depth, best: i.pv[0], cpWhite: uciScoreToWhite(i.kind, i.value, mover) }));
+    this.traces.set(key, p.trace);
+    if (this.traces.size > 2_000) this.traces.delete(this.traces.keys().next().value!);
     return true;
   }
 

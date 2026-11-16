@@ -11,6 +11,8 @@ export interface Settings {
   explorerRatings: number[];
   chesscomUsername: string;
   lichessUsername: string;
+  /** Your chess.com rating, for "at your level" evals and expected play. */
+  humanRating: number;
   puzzleTimeClasses: string[];
   puzzleDepth: number;
   puzzleMarkers: string[];
@@ -40,6 +42,7 @@ export const DEFAULTS: Settings = {
   explorerRatings: [1200, 1400, 1600, 1800],
   chesscomUsername: "",
   lichessUsername: "",
+  humanRating: 1000,
   puzzleTimeClasses: ["bullet", "blitz", "rapid", "daily"],
   puzzleDepth: 10,
   puzzleMarkers: ["??", "?", "?!"],

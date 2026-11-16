@@ -26,6 +26,8 @@ export class FakeEngine implements UciEngine {
     const g = new Chess(fen);
     return material(g, g.turn());
   };
+  /** Main-line move at each depth of a single-PV search (default: the first legal move). */
+  bestAt: ((fen: string, depth: number) => string) | null = null;
 
   send(command: string): void {
     this.commands.push(command);
@@ -61,9 +63,11 @@ export class FakeEngine implements UciEngine {
           .forEach((m, i) => emit(`info depth ${depth} multipv ${i + 1} score cp ${m.s} nodes 10 pv ${m.u}`));
         emit(`bestmove ${scored[0]?.u ?? "(none)"}`);
       } else {
-        const best = moves[0];
-        const score = this.scoreFor(this.fen, depth);
-        emit(`info depth ${depth} score cp ${score} pv ${best ?? ""}`.trim());
+        let best = moves[0];
+        for (let d = 1; d <= depth; d++) {
+          best = this.bestAt?.(this.fen, d) ?? moves[0];
+          emit(`info depth ${d} score cp ${this.scoreFor(this.fen, d)} pv ${best ?? ""}`.trim());
+        }
         emit(`bestmove ${best ?? "(none)"}`);
       }
     }

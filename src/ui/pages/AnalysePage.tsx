@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { START_FEN, board as makeBoard, playUci, turnOf } from "../../core/chess";
 import { cpPov, formatCp } from "../../core/evaluation";
 import { GameState } from "../../core/gameState";
+import { findChance, findDepth, goodMoves, humanEval, toLichess } from "../../core/humanModel";
 import { numberedLine } from "../Board";
+import { useDepthTrace } from "../humanEval";
 import { useGame } from "../game";
 import type { Settings } from "../settings";
 import { TIPS } from "../tips";
@@ -98,6 +100,37 @@ export function EngineLines({ count = 10 }: { count?: number }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/** The score as a player of ``rating`` (chess.com) would likely see it, and how findable the best move is. */
+function HumanEval({ rating, depth }: { rating: number; depth: number }) {
+  const { game } = useGame();
+  const fen = game.fen;
+  const trace = useDepthTrace(fen, depth);
+  const analysis = game.analysis.get(game.currentPly);
+  const lichess = toLichess(rating, "chess.com");
+  if (!trace?.length) return null;
+  const human = humanEval(trace, lichess);
+  const truth = trace[trace.length - 1].cpWhite;
+  let chance: number | null = null;
+  if (analysis && Object.keys(analysis.evals).length && analysis.depth >= depth) {
+    const fd = findDepth(trace, goodMoves(analysis.evals, turnOf(fen)));
+    if (fd !== null) chance = findChance(lichess, fd);
+  }
+  return (
+    <p className="small" style={{ margin: 0 }}>
+      <span data-tip={TIPS.humanEval}>
+        At {rating} level: <b>{human === null ? "?" : formatCp(human)}</b>
+        <span className="muted"> (engine {formatCp(truth)})</span>
+      </span>
+      {chance !== null && (
+        <span className="muted" data-tip={TIPS.bestFound}>
+          {" "}
+          · a good move here is found by about {Math.round(chance * 100)}% of {rating}s
+        </span>
+      )}
+    </p>
   );
 }
 
@@ -198,6 +231,7 @@ export function AnalysePage({ settings, update }: { settings: Settings; update: 
             style={{ width: 64 }}
           />
         </div>
+        <HumanEval rating={settings.humanRating} depth={settings.depth} />
         <EngineLines />
         <p className="small muted" style={{ margin: 0 }}>
           Tap a piece to see the evaluation of each of its moves. Heatmap colours run from red (worst) to green (best), and a gold star marks the piece with the best move. Point at a move in a line to see it on the board.

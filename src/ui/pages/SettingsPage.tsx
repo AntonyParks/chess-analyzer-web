@@ -99,6 +99,24 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
         <p className="small muted" style={{ margin: 0 }}>
           Stockfish 17.1 runs on your device on one thread. Deeper is stronger but slower, especially on phones.
         </p>
+        <div className="row">
+          <label htmlFor="set-rating" data-tip={TIPS.humanRating}>Your rating (chess.com)</label>
+          <input
+            id="set-rating"
+            type="number"
+            min={400}
+            max={2500}
+            step={50}
+            key={settings.humanRating}
+            defaultValue={settings.humanRating}
+            onBlur={(e) => update({ humanRating: clampRating(Number(e.target.value)) })}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            style={{ width: 80 }}
+          />
+        </div>
+        <p className="small muted" style={{ margin: 0 }}>
+          Used for the "at your level" score on the Analyse tab, and for games without ratings in Review's expected play.
+        </p>
       </section>
 
       <section className="panel">
@@ -180,4 +198,8 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
       </section>
     </div>
   );
+}
+
+function clampRating(n: number): number {
+  return Number.isFinite(n) && n > 0 ? Math.round(Math.max(400, Math.min(2500, n))) : 1000;
 }
