@@ -28,6 +28,7 @@ import json
 import math
 import multiprocessing as mp
 import os
+import random
 import sys
 import time
 
@@ -50,8 +51,13 @@ def cp_of(score: chess.engine.PovScore, turn: chess.Color) -> int:
     return score.pov(turn).score(mate_score=MATE)
 
 
-def positions(library_path: str):
-    """(id, fen, played uci, rating, time class, ply) for every rated player's move."""
+def positions(library_path: str, per_game: int = 0, min_clock: float = 0):
+    """(id, fen, played uci, rating, time class, ply) for rated players' moves.
+
+    per_game: keep this many randomly chosen moves per game (seeded by the game's URL), 0 = all.
+    min_clock: leave out moves after which the mover had less than this many seconds left (needs
+    [%clk] comments; moves without one are kept).
+    """
     data = json.load(open(library_path, encoding="utf-8"))
     for info in data["users"].values():
         for archive in info.get("archives", {}).values():
@@ -64,17 +70,28 @@ def positions(library_path: str):
                     continue
                 ratings = {chess.WHITE: g.get("white", {}).get("rating"), chess.BLACK: g.get("black", {}).get("rating")}
                 board = game.board()
-                for ply, move in enumerate(game.mainline_moves()):
-                    if ply >= MIN_PLY and ratings[board.turn] and board.legal_moves.count() > 1:
-                        yield {
+                found = []
+                for ply, node in enumerate(game.mainline()):
+                    move = node.move
+                    clock = node.clock()
+                    if (
+                        ply >= MIN_PLY
+                        and ratings[board.turn]
+                        and board.legal_moves.count() > 1
+                        and not (min_clock and clock is not None and clock < min_clock)
+                    ):
+                        found.append({
                             "id": f"{g['url']}#{ply}",
                             "fen": board.fen(),
                             "played": move.uci(),
                             "rating": ratings[board.turn],
                             "time_class": g.get("time_class"),
                             "ply": ply,
-                        }
+                        })
                     board.push(move)
+                if per_game and len(found) > per_game:
+                    found = sorted(random.Random(g["url"]).sample(found, per_game), key=lambda p: p["ply"])
+                yield from found
 
 
 _engine: chess.engine.SimpleEngine | None = None
@@ -111,9 +128,16 @@ def _analyse(pos: dict) -> dict:
             continue
         info = _engine.analyse(board, chess.engine.Limit(depth=_depth), root_moves=[chess.Move.from_uci(uci)])
         scores[uci] = cp_of(info["score"], turn)
+    # The top three moves at the reference depth: how many good moves the position has, and the
+    # gap from the best to the second best (moves already scored keep their own search's score).
+    multi = _engine.analyse(board, chess.engine.Limit(depth=_depth), multipv=min(3, board.legal_moves.count()))
+    ranked = [(i["pv"][0].uci(), cp_of(i["score"], turn)) for i in multi if "pv" in i and "score" in i]
+    for uci, cp in ranked:
+        scores.setdefault(uci, cp)
     top = max(scores.values())
     wc_top = win_chance(top)
     excellent = {u for u, c in scores.items() if wc_top - win_chance(c) <= EXCELLENT}
+    second_gap = round(win_chance(ranked[0][1]) - win_chance(ranked[1][1]), 4) if len(ranked) > 1 else None
     find = _depth + 1
     for d in reversed(depths):
         if per_depth[d][0] in excellent:
@@ -129,6 +153,8 @@ def _analyse(pos: dict) -> dict:
         "loss": round(wc_top - win_chance(scores[pos["played"]]), 4),
         "found": pos["played"] in excellent,
         "find_depth": find,
+        "n_good": len(excellent),  # a lower bound: only the top three and the moves above were scored
+        "second_gap": second_gap,
         "by_depth": [[d, per_depth[d][0], per_depth[d][1]] for d in depths],
     }
 
@@ -141,6 +167,8 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 2))
     ap.add_argument("--depth", type=int, default=18)
     ap.add_argument("--limit", type=int, default=0, help="only this many new positions (for a trial)")
+    ap.add_argument("--per-game", type=int, default=0, help="random moves kept per game (0 = all)")
+    ap.add_argument("--min-clock", type=float, default=0, help="skip moves that left under this many seconds")
     args = ap.parse_args()
 
     done = set()
@@ -151,7 +179,7 @@ def main() -> None:
                     done.add(json.loads(line)["id"])
                 except (ValueError, KeyError):
                     pass
-    todo = [p for p in positions(args.library) if p["id"] not in done]
+    todo = [p for p in positions(args.library, args.per_game, args.min_clock) if p["id"] not in done]
     if args.limit:
         todo = todo[: args.limit]
     print(f"{len(done)} done, {len(todo)} to analyse with {args.workers} workers at depth {args.depth}", flush=True)
