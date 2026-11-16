@@ -144,6 +144,10 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
           </p>
         )}
       </section>
+      <section className="panel">
+        <h2>Moves</h2>
+        <MoveList />
+      </section>
       {entries.length > 0 && (
         <section className="panel">
           <div className="row">
@@ -191,10 +195,6 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
           </div>
         </section>
       )}
-      <section className="panel">
-        <h2>Moves</h2>
-        <MoveList />
-      </section>
       <GameList settings={settings} update={update} onOpen={() => setAutoStart(true)} />
     </div>
   );
