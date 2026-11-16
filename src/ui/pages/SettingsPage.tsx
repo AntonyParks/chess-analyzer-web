@@ -27,6 +27,35 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
   return (
     <div className="col" style={{ maxWidth: 760 }}>
       <section className="panel">
+        <h2>You</h2>
+        <div className="row">
+          <label htmlFor="set-chesscom" style={{ width: 150 }}>chess.com username</label>
+          <input
+            id="set-chesscom"
+            key={`c-${settings.chesscomUsername}`}
+            defaultValue={settings.chesscomUsername}
+            onBlur={(e) => update({ chesscomUsername: e.target.value.trim() })}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            style={{ width: 170 }}
+          />
+        </div>
+        <div className="row">
+          <label htmlFor="set-lichess" style={{ width: 150 }}>Lichess username</label>
+          <input
+            id="set-lichess"
+            key={`l-${settings.lichessUsername}`}
+            defaultValue={settings.lichessUsername}
+            onBlur={(e) => update({ lichessUsername: e.target.value.trim() })}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            style={{ width: 170 }}
+          />
+        </div>
+        <p className="small muted" style={{ margin: 0 }}>
+          Game review lists flagged moves only for the side you played, found by these names. The game downloads on the Review
+          tab use them too.
+        </p>
+      </section>
+      <section className="panel">
         <h2>Lichess</h2>
         <p className="small muted" style={{ margin: 0 }}>
           The opening explorer (Explorer, Insights and repertoire game counts) works without logging in. Logging in makes

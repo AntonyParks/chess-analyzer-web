@@ -50,6 +50,9 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const entries = useMemo(() => buildReview(game), [tick, game]);
+  const you = userSide(game.headers, [settings.chesscomUsername, settings.lichessUsername]);
+  const [showBoth, setShowBoth] = useState(false);
+  const shownEntries = you && !showBoth ? entries.filter((e) => e.isWhite === (you.color === "w")) : entries;
   const ratings = useMemo(() => gameRatings(game.headers, settings.humanRating), [game, settings.humanRating]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const play = useMemo(() => expectedPlay(plyData(game), ratings), [tick, game, ratings]);
@@ -128,9 +131,22 @@ export function ReviewPage({ settings, update }: { settings: Settings; update: (
       </section>
       {entries.length > 0 && (
         <section className="panel">
-          <h2>Flagged moves</h2>
+          <div className="row">
+            <h2 className="grow">Flagged moves</h2>
+            {you && (
+              <label className="chip" data-tip={TIPS.reviewBothSides}>
+                <input type="checkbox" checked={showBoth} onChange={(e) => setShowBoth(e.target.checked)} />
+                Opponent too
+              </label>
+            )}
+          </div>
+          {you && !showBoth && (
+            <p className="small muted" style={{ margin: 0 }}>
+              {you.name}'s moves ({you.color === "w" ? "White" : "Black"}){shownEntries.length ? "" : ": none flagged."}
+            </p>
+          )}
           <div style={{ display: "grid", gap: 8 }}>
-            {entries.map((e) => (
+            {shownEntries.map((e) => (
               <button
                 key={e.ply}
                 type="button"
@@ -208,4 +224,13 @@ function ExpectedPlayRow({ play, ratings, headers }: { play: ExpectedPlay; ratin
       })}
     </div>
   );
+}
+
+/** The side whose PGN name matches one of your usernames (case-insensitive), if exactly one does. */
+function userSide(headers: Record<string, string>, names: string[]): { color: "w" | "b"; name: string } | null {
+  const mine = new Set(names.map((n) => n.trim().toLowerCase()).filter(Boolean));
+  const w = mine.has((headers.White ?? "").toLowerCase());
+  const b = mine.has((headers.Black ?? "").toLowerCase());
+  if (w === b) return null;
+  return w ? { color: "w", name: headers.White } : { color: "b", name: headers.Black };
 }
