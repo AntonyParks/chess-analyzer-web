@@ -28,10 +28,39 @@ import { deleteAll, isPersisted, loadAny, loadRecord, requestPersistence, saveAn
 
 /** The auto-save file: off, saving, or paused until a click allows writing again. */
 export interface BackupFileState {
-  status: "unsupported" | "off" | "on" | "paused" | "error";
+  status: "unsupported" | "off" | "on" | "paused" | "held" | "error";
   name: string | null;
   savedAt: Date | null;
+  /** Error text ("error"), or why saving is held back ("held"). */
   error: string | null;
+}
+
+/** How much a backup holds, to notice a store that suddenly shrank. */
+interface Sizes {
+  moves: number;
+  puzzles: number;
+  games: number;
+}
+
+function sizesOf(library: unknown, puzzles: PuzzleStore, repertoire: RepertoireStore): Sizes {
+  let games = 0;
+  const users = (library as { users?: Record<string, { archives?: Record<string, unknown> }> })?.users ?? {};
+  for (const u of Object.values(users)) {
+    for (const a of Object.values(u?.archives ?? {})) {
+      const list = Array.isArray(a) ? a : (a as { games?: unknown[] })?.games;
+      games += Array.isArray(list) ? list.length : 0;
+    }
+  }
+  return { moves: repertoire.entries.reduce((n, e) => n + e.rep.size(), 0), puzzles: puzzles.size, games };
+}
+
+/** The first store that lost more than half of what the file holds, if any. */
+function shrunk(now: Sizes, file: Sizes): string | null {
+  const names: Record<keyof Sizes, string> = { moves: "repertoire moves", puzzles: "puzzles", games: "games" };
+  for (const k of ["moves", "puzzles", "games"] as const) {
+    if (file[k] > 0 && now[k] < file[k] / 2) return `${names[k]}: ${now[k]} here, ${file[k]} in the file`;
+  }
+  return null;
 }
 
 type DataKey = Exclude<StoreKey, "scan">;
@@ -58,6 +87,8 @@ export interface DataApi {
   openBackupFile: () => Promise<string>;
   /** Allow writing again after a reload (from a click). */
   resumeBackupFile: () => Promise<void>;
+  /** Write the file even though saving was held back. */
+  saveBackupFileAnyway: () => Promise<void>;
   stopBackupFile: () => Promise<void>;
 }
 
@@ -80,6 +111,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const handle = useRef<FileHandle | null>(null);
   const fileOn = useRef(false);
   const fileTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** What the file held when last read or written (null: not known yet this session). */
+  const fileSizes = useRef<Sizes | null>(null);
+  /** Stores that couldn't be read this session: the file must not be overwritten. */
+  const keptAside = useRef<string[]>([]);
 
   const setFile = useCallback((next: BackupFileState | ((b: BackupFileState) => BackupFileState)) => {
     setBackupFile((b) => {
@@ -102,6 +137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const keepAside = async (key: DataKey, raw: unknown, err: unknown) => {
         const aside = `${key}-unreadable`;
         console.warn(`Stored ${key} unreadable; a copy is kept as ${aside}`, err);
+        if (!keptAside.current.includes(key)) keptAside.current.push(key);
         if ((await loadAny(aside).catch(() => undefined)) === undefined) await saveAny(aside, raw).catch(() => undefined);
       };
       // The readers are lenient: data they don't understand comes back empty rather than as an
@@ -146,7 +182,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (h) {
         handle.current = h;
         const perm = await writePermission(h, false);
-        setFile({ status: perm === "granted" ? "on" : "paused", name: h.name, savedAt: null, error: null });
+        if (keptAside.current.length) {
+          setFile({ status: "held", name: h.name, savedAt: null, error: heldForAside(keptAside.current) });
+        } else {
+          setFile({ status: perm === "granted" ? "on" : "paused", name: h.name, savedAt: null, error: null });
+        }
       }
     })();
   }, [setFile]);
@@ -163,22 +203,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const writeBackupFile = useCallback(async () => {
-    fileTimer.current = null;
-    const h = handle.current;
-    if (!h || !fileOn.current) return;
-    const s = stores.current;
-    const empty = !s.repertoire.entries.some((e) => e.rep.size() > 0) && s.puzzles.size === 0 && s.library.usernames().length === 0;
-    if (empty) return; // never overwrite a backup with nothing
-    try {
-      await writeFile(h, JSON.stringify(backupObject()));
-      setFile((b) => ({ ...b, status: "on", savedAt: new Date(), error: null }));
-    } catch (err) {
-      const e = err as Error;
-      const paused = e.name === "NotAllowedError" || e.name === "SecurityError";
-      setFile((b) => ({ ...b, status: paused ? "paused" : "error", error: paused ? null : e.message }));
-    }
-  }, [backupObject, setFile]);
+  /** Write the file; ``force`` skips the shrink check (the visitor said so). */
+  const writeBackupFile = useCallback(
+    async (force = false) => {
+      fileTimer.current = null;
+      const h = handle.current;
+      if (!h || !fileOn.current) return;
+      const s = stores.current;
+      const backup = backupObject();
+      const now = sizesOf(backup.library, s.puzzles, s.repertoire);
+      if (!now.moves && !now.puzzles && !now.games) return; // never overwrite a backup with nothing
+      try {
+        if (!force) {
+          if (fileSizes.current === null) fileSizes.current = await sizesInFile(h);
+          const lost = fileSizes.current && shrunk(now, fileSizes.current);
+          if (lost) {
+            const why = `Less here than in the file (${lost}), so the file isn't overwritten.`;
+            setFile((b) => ({ ...b, status: "held", error: why }));
+            return;
+          }
+        }
+        await writeFile(h, JSON.stringify(backup));
+        fileSizes.current = now;
+        setFile((b) => ({ ...b, status: "on", savedAt: new Date(), error: null }));
+      } catch (err) {
+        const e = err as Error;
+        const paused = e.name === "NotAllowedError" || e.name === "SecurityError";
+        setFile((b) => ({ ...b, status: paused ? "paused" : "error", error: paused ? null : e.message }));
+      }
+    },
+    [backupObject, setFile],
+  );
 
   const scheduleFile = useCallback(() => {
     if (!handle.current) return;
@@ -299,6 +354,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     handle.current = h;
     await rememberHandle(h);
+    fileSizes.current = null; // a chosen file may already hold a backup: compare first
+    fileOn.current = true; // before the write below (the state update may not have run yet)
     setFile({ status: "on", name: h.name, savedAt: null, error: null });
     await writeBackupFile();
     return `Saving everything to ${h.name} after every change.`;
@@ -333,7 +390,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setVersion((v) => v + 1);
     handle.current = h;
     await rememberHandle(h);
+    keptAside.current = [];
+    fileSizes.current = sizesOf(obj.library, s.puzzles, s.repertoire);
     const perm = await writePermission(h, true);
+    fileOn.current = perm === "granted";
     setFile({ status: perm === "granted" ? "on" : "paused", name: h.name, savedAt: null, error: null });
     return `${h.name}: restored${perm === "granted" ? ", and saving to it from now on" : ""}.`;
   }, [writeNow, setFile]);
@@ -342,8 +402,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const h = handle.current;
     if (!h) return;
     const perm = await writePermission(h, true);
-    setFile((b) => ({ ...b, status: perm === "granted" ? "on" : "paused" }));
-    if (perm === "granted") await writeBackupFile();
+    if (perm !== "granted") return setFile((b) => ({ ...b, status: "paused" }));
+    if (keptAside.current.length) {
+      return setFile((b) => ({ ...b, status: "held", error: heldForAside(keptAside.current) }));
+    }
+    fileOn.current = true; // before the write below (the state update may not have run yet)
+    setFile((b) => ({ ...b, status: "on" }));
+    await writeBackupFile();
+  }, [setFile, writeBackupFile]);
+
+  const saveBackupFileAnyway = useCallback(async () => {
+    const h = handle.current;
+    if (!h) return;
+    if ((await writePermission(h, true)) !== "granted") return setFile((b) => ({ ...b, status: "paused" }));
+    keptAside.current = [];
+    fileOn.current = true;
+    setFile((b) => ({ ...b, status: "on", error: null }));
+    await writeBackupFile(true);
   }, [setFile, writeBackupFile]);
 
   const stopBackupFile = useCallback(async () => {
@@ -375,6 +450,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       startBackupFile,
       openBackupFile,
       resumeBackupFile,
+      saveBackupFileAnyway,
       stopBackupFile,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -387,4 +463,21 @@ export function useData(): DataApi {
   const d = useContext(DataContext);
   if (!d) throw new Error("useData outside DataProvider");
   return d;
+}
+
+function heldForAside(keys: string[]): string {
+  return `Some of your stored ${keys.join(" and ")} couldn't be read (a copy is kept in this browser), so the file isn't overwritten. Restore from the file, or save anyway.`;
+}
+
+/** What the file holds now (null if it is empty, unreadable or not a backup). */
+async function sizesInFile(h: FileHandle): Promise<Sizes | null> {
+  try {
+    const text = await readFile(h);
+    if (!text.trim()) return null;
+    const obj = JSON.parse(text) as Record<string, unknown>;
+    if (obj?.app !== "chess-analyzer-web") return null;
+    return sizesOf(obj.library, PuzzleStore.fromJSON(obj.puzzles), RepertoireStore.fromJSON(obj.repertoire));
+  } catch {
+    return null;
+  }
 }

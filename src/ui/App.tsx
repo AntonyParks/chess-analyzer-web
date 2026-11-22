@@ -171,6 +171,16 @@ function Page({
 /** After a reload the browser may need a click before the auto-save file can be written again. */
 function BackupBanner() {
   const { backupFile, resumeBackupFile } = useData();
+  if (backupFile.status === "held") {
+    return (
+      <p className="small warn row" style={{ margin: "4px 0" }}>
+        Auto-save to {backupFile.name} is on hold. {backupFile.error}
+        <button className="btn" type="button" onClick={() => (location.hash = "settings")}>
+          Open Settings
+        </button>
+      </p>
+    );
+  }
   if (backupFile.status !== "paused") return null;
   return (
     <p className="small warn row" style={{ margin: "4px 0" }}>

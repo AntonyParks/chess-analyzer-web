@@ -65,6 +65,7 @@ export const TIPS = {
   reviewBothSides: "Also list your opponent's flagged moves. Your side is found from your usernames in Settings.",
   backupFileStart:
     "Pick a file on your computer: everything (repertoire, games, puzzles) is saved to it after every change. If this browser's data is ever wiped, restore from it.",
+  backupFileAnyway: "Overwrite the auto-save file with what this browser has now. Restore from the file first if it holds data you want back.",
   backupFileOpen: "Open an auto-save or backup file: restores everything from it and keeps saving to it.",
   humanRating:
     "Your chess.com rating. The \"at your level\" score blends Stockfish's view at each depth by how deep players of this rating tend to see (measured on Lichess games).",

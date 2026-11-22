@@ -303,11 +303,21 @@ function BackupFilePanel({ onMessage }: { onMessage: (m: string) => void }) {
         )}
         {f.status === "paused" && <span className="small warn">{f.name}, paused until you allow it again</span>}
         {f.status === "error" && <span className="small bad">{f.name}: {f.error}</span>}
+        {f.status === "held" && (
+          <span className="small warn">
+            {f.name}, on hold. {f.error}
+          </span>
+        )}
       </div>
       <div className="row">
         {f.status === "paused" && (
           <button className="btn primary" type="button" onClick={() => void data.resumeBackupFile()}>
             Resume auto-save
+          </button>
+        )}
+        {f.status === "held" && (
+          <button className="btn" type="button" data-tip={TIPS.backupFileAnyway} onClick={() => void data.saveBackupFileAnyway()}>
+            Save to it anyway
           </button>
         )}
         {(f.status === "off" || f.status === "error") && (
