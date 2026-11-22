@@ -6,7 +6,7 @@ import { AnalysisBoard } from "./AnalysisBoard";
 import { EngineProvider, useEngines } from "./engine";
 import { GameProvider, useGame } from "./game";
 import { finishLogin, isLoginRedirect } from "../data/lichessAuth";
-import { DataProvider } from "./data";
+import { DataProvider, useData } from "./data";
 import { LichessProvider } from "./lichess";
 import { AnalysePage } from "./pages/AnalysePage";
 import { ExplorerPage } from "./pages/ExplorerPage";
@@ -89,6 +89,7 @@ export function App() {
           </header>
           <InitialPosition />
           {loginMessage && <p className="small">{loginMessage}</p>}
+          <BackupBanner />
           <Tooltip />
           <main className="page">
             <Page tab={tab} settings={settings} update={update} setBoardBusy={setBoardBusy} />
@@ -165,4 +166,18 @@ function Page({
         </div>
       );
   }
+}
+
+/** After a reload the browser may need a click before the auto-save file can be written again. */
+function BackupBanner() {
+  const { backupFile, resumeBackupFile } = useData();
+  if (backupFile.status !== "paused") return null;
+  return (
+    <p className="small warn row" style={{ margin: "4px 0" }}>
+      Auto-save to {backupFile.name} is paused: your browser needs your OK to write to it again.
+      <button className="btn" type="button" onClick={() => void resumeBackupFile()}>
+        Resume auto-save
+      </button>
+    </p>
+  );
 }

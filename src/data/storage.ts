@@ -43,3 +43,23 @@ export async function requestPersistence(): Promise<boolean> {
     return false;
   }
 }
+
+/** Any other record (the backup file handle, copies of unreadable data); ``undefined`` deletes it. */
+export async function saveAny(key: string, value: unknown): Promise<void> {
+  const d = await db();
+  if (value === undefined) await d.delete(STORE, key);
+  else await d.put(STORE, value, key);
+}
+
+export async function loadAny(key: string): Promise<unknown> {
+  return (await db()).get(STORE, key);
+}
+
+/** Whether the browser has agreed not to clear this site's storage on its own. */
+export async function isPersisted(): Promise<boolean | null> {
+  try {
+    return (await navigator.storage?.persisted?.()) ?? null;
+  } catch {
+    return null;
+  }
+}

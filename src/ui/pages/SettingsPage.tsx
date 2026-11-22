@@ -188,8 +188,16 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
           (puzzles.json, repertoire.json, chesscom_games.json).
         </p>
         <p className="small" style={{ margin: 0 }}>{data.summary}</p>
+        {data.persisted !== null && (
+          <p className={`small ${data.persisted ? "muted" : "warn"}`} style={{ margin: 0 }}>
+            {data.persisted
+              ? "Your browser has agreed to keep this site's data (it won't clear it on its own)."
+              : "Your browser hasn't agreed to keep this site's data: it may clear it on its own to free space. Use the auto-save file below."}
+          </p>
+        )}
+        <BackupFilePanel onMessage={setMessage} />
         <div className="row">
-          <button className="btn primary" type="button" onClick={() => data.exportBackup()} data-tip={TIPS.backup}>
+          <button className="btn" type="button" onClick={() => data.exportBackup()} data-tip={TIPS.backup}>
             Download backup
           </button>
           <button className="btn" type="button" onClick={() => fileRef.current?.click()} data-tip={TIPS.import}>
@@ -217,7 +225,13 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
             </button>
           ) : (
             <>
-              <span className="bad small">This deletes your games, puzzles, results and repertoire from this browser.</span>
+              <span className="bad small">
+                This deletes your repertoire, games, puzzles and results from this browser for good
+                {data.backupFile.name ? ` (your auto-save file ${data.backupFile.name} is kept, and no longer written to)` : ""}.
+              </span>
+              <button className="btn" type="button" onClick={() => data.exportBackup()}>
+                Download a backup first
+              </button>
               <button
                 className="btn"
                 type="button"
@@ -263,4 +277,58 @@ export function SettingsPage({ settings, update }: { settings: Settings; update:
 
 function clampRating(n: number): number {
   return Number.isFinite(n) && n > 0 ? Math.round(Math.max(400, Math.min(2500, n))) : 1000;
+}
+
+/** The auto-save file: start, restore from, resume after a reload, or stop. */
+function BackupFilePanel({ onMessage }: { onMessage: (m: string) => void }) {
+  const data = useData();
+  const f = data.backupFile;
+  if (f.status === "unsupported") {
+    return (
+      <p className="small muted" style={{ margin: 0 }}>
+        Auto-saving to a file needs Chrome or Edge on a computer. Here, download a backup now and then.
+      </p>
+    );
+  }
+  return (
+    <div className="col" style={{ gap: 6 }}>
+      <div className="row">
+        <b className="small">Auto-save file:</b>
+        {f.status === "off" && <span className="small muted">off</span>}
+        {f.status === "on" && (
+          <span className="small good">
+            {f.name}
+            {f.savedAt ? `, saved ${f.savedAt.toLocaleTimeString()}` : ""}
+          </span>
+        )}
+        {f.status === "paused" && <span className="small warn">{f.name}, paused until you allow it again</span>}
+        {f.status === "error" && <span className="small bad">{f.name}: {f.error}</span>}
+      </div>
+      <div className="row">
+        {f.status === "paused" && (
+          <button className="btn primary" type="button" onClick={() => void data.resumeBackupFile()}>
+            Resume auto-save
+          </button>
+        )}
+        {(f.status === "off" || f.status === "error") && (
+          <button
+            className="btn primary"
+            type="button"
+            data-tip={TIPS.backupFileStart}
+            onClick={async () => onMessage(await data.startBackupFile())}
+          >
+            Auto-save to a file…
+          </button>
+        )}
+        <button className="btn" type="button" data-tip={TIPS.backupFileOpen} onClick={async () => onMessage(await data.openBackupFile())}>
+          Restore from auto-save file…
+        </button>
+        {f.status !== "off" && (
+          <button className="btn" type="button" onClick={() => void data.stopBackupFile()}>
+            Stop auto-saving
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }

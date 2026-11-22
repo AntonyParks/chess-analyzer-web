@@ -63,6 +63,9 @@ export const TIPS = {
   reviewDepth: "How deep Stockfish analyses each position of the game. Higher is more accurate but slower.",
   reviewRun: "Analyse every position of the game, then list the flagged moves and each side's expected play.",
   reviewBothSides: "Also list your opponent's flagged moves. Your side is found from your usernames in Settings.",
+  backupFileStart:
+    "Pick a file on your computer: everything (repertoire, games, puzzles) is saved to it after every change. If this browser's data is ever wiped, restore from it.",
+  backupFileOpen: "Open an auto-save or backup file: restores everything from it and keeps saving to it.",
   humanRating:
     "Your chess.com rating. The \"at your level\" score blends Stockfish's view at each depth by how deep players of this rating tend to see (measured on Lichess games).",
   humanRatingAuto: "Take your rating from your most recent downloaded game in the chosen time control, so it follows your rating as you play.",
